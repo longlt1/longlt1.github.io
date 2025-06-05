@@ -138,18 +138,21 @@ class GoGame {
         const gameModeSelect = document.getElementById('gameMode');
         const aiSettings = document.querySelector('.ai-settings');
         const aiHint = document.querySelector('.ai-hint');
-        const externalAI = document.getElementById('externalAI');
         const apiKeyInput = document.getElementById('apiKey');
 
         gameModeSelect.addEventListener('change', (e) => {
             this.gameMode = e.target.value;
-            if (this.gameMode === 'pve' || this.gameMode === 'learning') {
+            if (this.gameMode === 'pve') {
+                console.log('pve');
                 aiSettings.style.display = 'block';
                 aiHint.style.display = 'block';
+                if (apiKeyInput) apiKeyInput.style.display = 'block';
                 this.randomizeColors();
             } else {
+                console.log('pvp');
                 aiSettings.style.display = 'none';
                 aiHint.style.display = 'none';
+                if (apiKeyInput) apiKeyInput.style.display = 'none';
                 document.getElementById('blackPlayerName').textContent = 'Người chơi Đen';
                 document.getElementById('whitePlayerName').textContent = 'Người chơi Trắng';
             }
@@ -163,30 +166,9 @@ class GoGame {
 
         // Xử lý thay đổi màu quân AI
         document.getElementById('aiColor').addEventListener('change', (e) => {
-            if (this.gameMode === 'pve' || this.gameMode === 'learning') {
+            if (this.gameMode === 'pve') {
                 this.updatePlayerNames();
                 this.newGame();
-            }
-        });
-
-        // Xử lý thay đổi AI bên ngoài
-        externalAI.addEventListener('change', (e) => {
-            const selectedAI = e.target.value;
-            if (selectedAI === 'none') {
-                apiKeyInput.style.display = 'none';
-                this.ai.setExternalAI(null);
-            } else {
-                apiKeyInput.style.display = 'block';
-                apiKeyInput.placeholder = selectedAI === 'chatgpt' ? 'OpenAI API Key' : 'Google API Key';
-            }
-        });
-
-        // Xử lý nhập API Key
-        apiKeyInput.addEventListener('change', (e) => {
-            const apiKey = e.target.value.trim();
-            if (apiKey) {
-                const selectedAI = externalAI.value;
-                this.ai.setExternalAI(selectedAI, apiKey);
             }
         });
     }
@@ -255,7 +237,7 @@ class GoGame {
         this.updateScore();
 
         // Xử lý nước đi của AI
-        if (this.gameMode === 'pve' || this.gameMode === 'learning') {
+        if (this.gameMode === 'pve') {
             const aiColor = document.getElementById('aiColor').value;
             if (this.currentPlayer === aiColor) {
                 this.isAIThinking = true;
@@ -266,13 +248,6 @@ class GoGame {
     }
 
     async makeAIMove() {
-        if (this.gameMode === 'learning') {
-            const hint = await this.ai.getLessonHint();
-            if (hint) {
-                document.getElementById('aiMessage').textContent = hint.message;
-            }
-        }
-
         const move = await this.ai.makeMove(this.board, this.currentPlayer);
         if (move) {
             const [row, col] = move;
@@ -408,7 +383,7 @@ class GoGame {
         this.updateScore();
 
         // Tự động đi nước đầu tiên nếu AI là quân đen
-        if ((this.gameMode === 'pve' || this.gameMode === 'learning') && 
+        if ((this.gameMode === 'pve') && 
             document.getElementById('aiColor').value === 'black') {
             this.isAIThinking = true;
             document.getElementById('board').style.cursor = 'wait';

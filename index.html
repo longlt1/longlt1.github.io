@@ -22,7 +22,15 @@
             <!-- Phần Chơi Cờ -->
             <section id="game" class="section active">
                 <div class="game-container">
-                    <div id="board"></div>
+                    <div class="left-col">
+                        <div id="board"></div>
+                        <div class="controls">
+                            <button id="newGame">Ván Mới</button>
+                            <button id="undo">Đi Lại</button>
+                            <button id="hint">Gợi Ý</button>
+                            <button id="endGame">Kết thúc ván</button>
+                        </div>
+                    </div>
                     <div class="info-panel">
                         <div class="game-mode">
                             <h3>Chế độ chơi</h3>
@@ -51,15 +59,7 @@
                                 <option value="black">Đen</option>
                                 <option value="white">Trắng</option>
                             </select>
-                            <div class="external-ai-settings">
-                                <h4>AI Bên Ngoài</h4>
-                                <select id="externalAI">
-                                    <option value="none">Không sử dụng</option>
-                                    <option value="chatgpt">ChatGPT</option>
-                                    <option value="gemini">Google Gemini</option>
-                                </select>
-                                <input type="text" id="apiKey" placeholder="API Key" style="display: none;">
-                            </div>
+                            <input type="text" id="apiKey" placeholder="Nhập OpenAI API Key" style="margin-top:8px;display:none;">
                         </div>
                         <div class="score">
                             <h3>Điểm</h3>
@@ -84,11 +84,6 @@
                                 <h4>Lượt đi hiện tại</h4>
                                 <p id="currentPlayer">Đen</p>
                             </div>
-                        </div>
-                        <div class="controls">
-                            <button id="newGame">Ván Mới</button>
-                            <button id="undo">Đi Lại</button>
-                            <button id="hint">Gợi Ý</button>
                         </div>
                         <div class="ai-hint" style="display: none;">
                             <p id="aiMessage"></p>
