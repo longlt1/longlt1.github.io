@@ -52,24 +52,6 @@ class GoGame {
         board.style.border = '2px solid #000';
         board.style.margin = '10px auto';
 
-        // Vẽ các điểm giao
-        for (let i = 0; i < this.boardSize; i++) {
-            for (let j = 0; j < this.boardSize; j++) {
-                const intersection = document.createElement('div');
-                intersection.className = 'intersection';
-                intersection.dataset.row = i;
-                intersection.dataset.col = j;
-                intersection.style.position = 'absolute';
-                intersection.style.width = `${this.boardWidth / 10}px`;
-                intersection.style.height = `${this.boardWidth / 10}px`;
-                intersection.style.transform = 'translate(-50%, -50%)';
-                intersection.style.left = `${(j * 100) / (this.boardSize - 1)}%`;
-                intersection.style.top = `${(i * 100) / (this.boardSize - 1)}%`;
-                intersection.style.cursor = 'pointer';
-                board.appendChild(intersection);
-            }
-        }
-
         // Vẽ các đường kẻ
         for (let i = 0; i < this.boardSize; i++) {
             // Vẽ đường ngang
@@ -109,6 +91,22 @@ class GoGame {
             star.style.left = `${(col * 100) / (this.boardSize - 1)}%`;
             star.style.top = `${(row * 100) / (this.boardSize - 1)}%`;
             board.appendChild(star);
+        });
+
+        // Thêm sự kiện click cho bàn cờ
+        board.addEventListener('click', (e) => {
+            if (this.isAIThinking || this.isGameOver) return;
+            
+            const rect = board.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const col = Math.round((x / rect.width) * (this.boardSize - 1));
+            const row = Math.round((y / rect.height) * (this.boardSize - 1));
+            
+            if (row >= 0 && row < this.boardSize && col >= 0 && col < this.boardSize) {
+                this.makeMove(row, col);
+            }
         });
     }
 
