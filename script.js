@@ -6,6 +6,7 @@ class GoGame {
         this.history = [];
         this.ai = new GoAI();
         this.gameMode = 'pvp';
+        this.isAIThinking = false;
         this.initializeBoard();
         this.setupEventListeners();
         this.setupMenu();
@@ -66,6 +67,9 @@ class GoGame {
     setupEventListeners() {
         const board = document.getElementById('board');
         board.addEventListener('click', (e) => {
+            if (this.isAIThinking) {
+                return;
+            }
             const intersection = e.target.closest('.intersection');
             if (intersection) {
                 const row = parseInt(intersection.dataset.row);
@@ -91,9 +95,12 @@ class GoGame {
             if (this.gameMode === 'pve' || this.gameMode === 'learning') {
                 aiSettings.style.display = 'block';
                 aiHint.style.display = 'block';
+                this.randomizeAIColor();
             } else {
                 aiSettings.style.display = 'none';
                 aiHint.style.display = 'none';
+                document.getElementById('blackPlayerName').textContent = 'Người chơi Đen';
+                document.getElementById('whitePlayerName').textContent = 'Người chơi Trắng';
             }
             this.newGame();
         });
@@ -105,7 +112,8 @@ class GoGame {
 
         // Xử lý thay đổi màu quân AI
         document.getElementById('aiColor').addEventListener('change', (e) => {
-            if (this.gameMode === 'pve') {
+            if (this.gameMode === 'pve' || this.gameMode === 'learning') {
+                this.updatePlayerNames();
                 this.newGame();
             }
         });
@@ -132,8 +140,25 @@ class GoGame {
         });
     }
 
+    randomizeAIColor() {
+        const aiColor = Math.random() < 0.5 ? 'black' : 'white';
+        document.getElementById('aiColor').value = aiColor;
+        this.updatePlayerNames();
+    }
+
+    updatePlayerNames() {
+        const aiColor = document.getElementById('aiColor').value;
+        if (aiColor === 'black') {
+            document.getElementById('blackPlayerName').textContent = 'AI (Đen)';
+            document.getElementById('whitePlayerName').textContent = 'Người chơi (Trắng)';
+        } else {
+            document.getElementById('blackPlayerName').textContent = 'Người chơi (Đen)';
+            document.getElementById('whitePlayerName').textContent = 'AI (Trắng)';
+        }
+    }
+
     makeMove(row, col) {
-        if (this.board[row][col] !== null) return;
+        if (this.board[row][col] !== null || this.isAIThinking) return;
 
         // Kiểm tra luật ko
         const tempBoard = this.board.map(row => [...row]);
@@ -159,6 +184,8 @@ class GoGame {
         if (this.gameMode === 'pve' || this.gameMode === 'learning') {
             const aiColor = document.getElementById('aiColor').value;
             if (this.currentPlayer === aiColor) {
+                this.isAIThinking = true;
+                document.getElementById('board').style.cursor = 'wait';
                 setTimeout(() => this.makeAIMove(), 500);
             }
         }
@@ -177,6 +204,8 @@ class GoGame {
             const [row, col] = move;
             this.makeMove(row, col);
         }
+        this.isAIThinking = false;
+        document.getElementById('board').style.cursor = 'default';
     }
 
     isValidMove(row, col, board) {
@@ -280,8 +309,18 @@ class GoGame {
         this.board = Array(this.boardSize).fill().map(() => Array(this.boardSize).fill(null));
         this.currentPlayer = 'black';
         this.history = [];
+        this.isAIThinking = false;
+        document.getElementById('board').style.cursor = 'default';
         this.initializeBoard();
         this.updateCurrentPlayer();
+
+        // Tự động đi nước đầu tiên nếu AI là quân đen
+        if ((this.gameMode === 'pve' || this.gameMode === 'learning') && 
+            document.getElementById('aiColor').value === 'black') {
+            this.isAIThinking = true;
+            document.getElementById('board').style.cursor = 'wait';
+            setTimeout(() => this.makeAIMove(), 500);
+        }
     }
 
     undo() {
