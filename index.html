@@ -34,9 +34,9 @@
                             <div class="board-size">
                                 <h4>Kích thước bàn cờ</h4>
                                 <select id="boardSize">
-                                    <option value="9">9x9</option>
+                                    <option value="9" selected>9x9</option>
                                     <option value="13">13x13</option>
-                                    <option value="19" selected>19x19</option>
+                                    <option value="19">19x19</option>
                                 </select>
                             </div>
                         </div>
@@ -70,14 +70,14 @@
                             <h3>Thông tin người chơi</h3>
                             <div class="player-info">
                                 <div class="player black">
-                                    <span class="player-color">●</span>
-                                    <span class="player-name" id="blackPlayerName">Người chơi Đen</span>
-                                    <span class="player-status" id="blackStatus">Đang chờ</span>
+                                    <div class="player-color"></div>
+                                    <span id="blackPlayerName">Người chơi Đen</span>
+                                    <span id="blackScore">0.0</span>
                                 </div>
                                 <div class="player white">
-                                    <span class="player-color">○</span>
-                                    <span class="player-name" id="whitePlayerName">Người chơi Trắng</span>
-                                    <span class="player-status" id="whiteStatus">Đang chờ</span>
+                                    <div class="player-color"></div>
+                                    <span id="whitePlayerName">Người chơi Trắng</span>
+                                    <span id="whiteScore">0.0</span>
                                 </div>
                             </div>
                             <div class="current-turn">

@@ -1,17 +1,30 @@
 class GoGame {
     constructor() {
-        this.boardSize = 19;
+        this.boardSize = 9;
         this.board = Array(this.boardSize).fill().map(() => Array(this.boardSize).fill(null));
         this.currentPlayer = 'black';
         this.history = [];
         this.ai = new GoAI();
         this.gameMode = 'pvp';
         this.isAIThinking = false;
+        this.autoPlay = false;
+        this.capturedStones = { black: 0, white: 0 };
+        this.isGameOver = false;
+        this.boardWidth = Math.min(window.innerWidth - 40, 400); // Giới hạn kích thước tối đa
         this.initializeBoard();
         this.setupEventListeners();
         this.setupMenu();
         this.setupGameMode();
         this.setupBoardSize();
+        this.setupResizeHandler();
+    }
+
+    setupResizeHandler() {
+        window.addEventListener('resize', () => {
+            this.boardWidth = Math.min(window.innerWidth - 40, 400);
+            this.initializeBoard();
+            this.updateBoard();
+        });
     }
 
     setupBoardSize() {
@@ -30,38 +43,73 @@ class GoGame {
     }
 
     initializeBoard() {
-        const boardElement = document.getElementById('board');
-        boardElement.innerHTML = '';
+        const board = document.getElementById('board');
+        board.innerHTML = '';
+        board.style.width = `${this.boardWidth}px`;
+        board.style.height = `${this.boardWidth}px`;
+        board.style.position = 'relative';
+        board.style.backgroundColor = '#DEB887';
+        board.style.border = '2px solid #000';
+        board.style.margin = '10px auto';
 
+        // Vẽ các điểm giao
         for (let i = 0; i < this.boardSize; i++) {
             for (let j = 0; j < this.boardSize; j++) {
                 const intersection = document.createElement('div');
                 intersection.className = 'intersection';
                 intersection.dataset.row = i;
                 intersection.dataset.col = j;
-
-                // Thêm điểm sao cho bàn cờ 19x19
-                if (this.boardSize === 19) {
-                    if ((i === 3 || i === 9 || i === 15) && (j === 3 || j === 9 || j === 15)) {
-                        intersection.classList.add('star-point');
-                    }
-                }
-                // Thêm điểm sao cho bàn cờ 13x13
-                else if (this.boardSize === 13) {
-                    if ((i === 3 || i === 6 || i === 9) && (j === 3 || j === 6 || j === 9)) {
-                        intersection.classList.add('star-point');
-                    }
-                }
-                // Thêm điểm sao cho bàn cờ 9x9
-                else if (this.boardSize === 9) {
-                    if ((i === 2 || i === 4 || i === 6) && (j === 2 || j === 4 || j === 6)) {
-                        intersection.classList.add('star-point');
-                    }
-                }
-
-                boardElement.appendChild(intersection);
+                intersection.style.position = 'absolute';
+                intersection.style.width = `${this.boardWidth / 10}px`;
+                intersection.style.height = `${this.boardWidth / 10}px`;
+                intersection.style.transform = 'translate(-50%, -50%)';
+                intersection.style.left = `${(j * 100) / (this.boardSize - 1)}%`;
+                intersection.style.top = `${(i * 100) / (this.boardSize - 1)}%`;
+                intersection.style.cursor = 'pointer';
+                board.appendChild(intersection);
             }
         }
+
+        // Vẽ các đường kẻ
+        for (let i = 0; i < this.boardSize; i++) {
+            // Vẽ đường ngang
+            const hLine = document.createElement('div');
+            hLine.className = 'grid-line horizontal';
+            hLine.style.position = 'absolute';
+            hLine.style.left = '0';
+            hLine.style.width = '100%';
+            hLine.style.height = '1px';
+            hLine.style.backgroundColor = '#000';
+            hLine.style.top = `${(i * 100) / (this.boardSize - 1)}%`;
+            board.appendChild(hLine);
+
+            // Vẽ đường dọc
+            const vLine = document.createElement('div');
+            vLine.className = 'grid-line vertical';
+            vLine.style.position = 'absolute';
+            vLine.style.top = '0';
+            vLine.style.height = '100%';
+            vLine.style.width = '1px';
+            vLine.style.backgroundColor = '#000';
+            vLine.style.left = `${(i * 100) / (this.boardSize - 1)}%`;
+            board.appendChild(vLine);
+        }
+
+        // Vẽ sao điểm
+        const starPoints = this.getStarPoints();
+        starPoints.forEach(([row, col]) => {
+            const star = document.createElement('div');
+            star.className = 'star-point';
+            star.style.position = 'absolute';
+            star.style.width = `${this.boardWidth / 75}px`;
+            star.style.height = `${this.boardWidth / 75}px`;
+            star.style.backgroundColor = '#000';
+            star.style.borderRadius = '50%';
+            star.style.transform = 'translate(-50%, -50%)';
+            star.style.left = `${(col * 100) / (this.boardSize - 1)}%`;
+            star.style.top = `${(row * 100) / (this.boardSize - 1)}%`;
+            board.appendChild(star);
+        });
     }
 
     setupEventListeners() {
@@ -81,6 +129,11 @@ class GoGame {
         document.getElementById('newGame').addEventListener('click', () => this.newGame());
         document.getElementById('undo').addEventListener('click', () => this.undo());
         document.getElementById('hint').addEventListener('click', () => this.showHint());
+        document.getElementById('endGame').addEventListener('click', () => {
+            if (!this.isGameOver) {
+                this.endGame();
+            }
+        });
     }
 
     setupGameMode() {
@@ -95,7 +148,7 @@ class GoGame {
             if (this.gameMode === 'pve' || this.gameMode === 'learning') {
                 aiSettings.style.display = 'block';
                 aiHint.style.display = 'block';
-                this.randomizeAIColor();
+                this.randomizeColors();
             } else {
                 aiSettings.style.display = 'none';
                 aiHint.style.display = 'none';
@@ -140,9 +193,12 @@ class GoGame {
         });
     }
 
-    randomizeAIColor() {
+    randomizeColors() {
         const aiColor = Math.random() < 0.5 ? 'black' : 'white';
         document.getElementById('aiColor').value = aiColor;
+        
+        const playerColor = aiColor === 'black' ? 'white' : 'black';
+        this.currentPlayer = 'black';
         this.updatePlayerNames();
     }
 
@@ -169,6 +225,25 @@ class GoGame {
             return;
         }
 
+        // Kiểm tra và bắt quân đối phương
+        const opponent = this.currentPlayer === 'black' ? 'white' : 'black';
+        const adjacentOpponentGroups = this.getAdjacentGroups(row, col, opponent, this.board);
+        let capturedCount = 0;
+        
+        for (const group of adjacentOpponentGroups) {
+            if (!this.hasLiberties(group, this.board)) {
+                // Bắt quân
+                for (const pos of group) {
+                    const [r, c] = pos.split(',').map(Number);
+                    this.board[r][c] = null;
+                    capturedCount++;
+                }
+            }
+        }
+
+        // Cập nhật số quân bắt được
+        this.capturedStones[this.currentPlayer] += capturedCount;
+
         this.board[row][col] = this.currentPlayer;
         this.history.push({
             row,
@@ -179,6 +254,7 @@ class GoGame {
         this.updateBoard();
         this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black';
         this.updateCurrentPlayer();
+        this.updateScore();
 
         // Xử lý nước đi của AI
         if (this.gameMode === 'pve' || this.gameMode === 'learning') {
@@ -285,19 +361,34 @@ class GoGame {
     }
 
     updateBoard() {
-        const intersections = document.querySelectorAll('.intersection');
-        intersections.forEach(intersection => {
-            const row = parseInt(intersection.dataset.row);
-            const col = parseInt(intersection.dataset.col);
-            const stone = this.board[row][col];
-            
-            intersection.innerHTML = '';
-            if (stone) {
-                const stoneElement = document.createElement('div');
-                stoneElement.className = `stone ${stone}`;
-                intersection.appendChild(stoneElement);
+        const board = document.getElementById('board');
+        
+        // Xóa tất cả quân cờ cũ
+        const stones = board.getElementsByClassName('stone');
+        while (stones.length > 0) {
+            stones[0].remove();
+        }
+
+        // Vẽ lại quân cờ
+        for (let i = 0; i < this.boardSize; i++) {
+            for (let j = 0; j < this.boardSize; j++) {
+                if (this.board[i][j]) {
+                    const stone = document.createElement('div');
+                    stone.className = `stone ${this.board[i][j]}`;
+                    stone.style.position = 'absolute';
+                    stone.style.width = `${this.boardWidth / 10}px`;
+                    stone.style.height = `${this.boardWidth / 10}px`;
+                    stone.style.borderRadius = '50%';
+                    stone.style.backgroundColor = this.board[i][j] === 'black' ? '#000' : '#fff';
+                    stone.style.border = '1px solid #000';
+                    stone.style.transform = 'translate(-50%, -50%)';
+                    stone.style.left = `${(j * 100) / (this.boardSize - 1)}%`;
+                    stone.style.top = `${(i * 100) / (this.boardSize - 1)}%`;
+                    stone.style.zIndex = '1';
+                    board.appendChild(stone);
+                }
             }
-        });
+        }
     }
 
     updateCurrentPlayer() {
@@ -310,9 +401,13 @@ class GoGame {
         this.currentPlayer = 'black';
         this.history = [];
         this.isAIThinking = false;
+        this.capturedStones = { black: 0, white: 0 };
+        this.isGameOver = false;
         document.getElementById('board').style.cursor = 'default';
+        document.getElementById('board').style.pointerEvents = 'auto';
         this.initializeBoard();
         this.updateCurrentPlayer();
+        this.updateScore();
 
         // Tự động đi nước đầu tiên nếu AI là quân đen
         if ((this.gameMode === 'pve' || this.gameMode === 'learning') && 
@@ -410,6 +505,159 @@ class GoGame {
                 // TODO: Implement challenge logic
             });
         });
+    }
+
+    calculateTerritory() {
+        const territory = { black: 0, white: 0 };
+        const visited = new Set();
+
+        // Duyệt qua tất cả các điểm trên bàn cờ
+        for (let i = 0; i < this.boardSize; i++) {
+            for (let j = 0; j < this.boardSize; j++) {
+                if (visited.has(`${i},${j}`)) continue;
+
+                if (this.board[i][j] === null) {
+                    // Tìm vùng trống và xác định chủ sở hữu
+                    const { owner, size } = this.findTerritoryOwner(i, j, visited);
+                    if (owner) {
+                        territory[owner] += size;
+                    }
+                } else {
+                    // Điểm có quân
+                    territory[this.board[i][j]]++;
+                }
+            }
+        }
+
+        return territory;
+    }
+
+    findTerritoryOwner(row, col, visited) {
+        const queue = [[row, col]];
+        const territory = new Set();
+        const borders = new Set();
+        let size = 0;
+
+        while (queue.length > 0) {
+            const [r, c] = queue.shift();
+            const key = `${r},${c}`;
+            
+            if (visited.has(key)) continue;
+            visited.add(key);
+
+            if (this.board[r][c] === null) {
+                size++;
+                territory.add(key);
+
+                // Kiểm tra các ô xung quanh
+                const directions = [[1,0], [-1,0], [0,1], [0,-1]];
+                for (const [dr, dc] of directions) {
+                    const newRow = r + dr;
+                    const newCol = c + dc;
+                    
+                    if (newRow >= 0 && newRow < this.boardSize && 
+                        newCol >= 0 && newCol < this.boardSize) {
+                        if (this.board[newRow][newCol] === null) {
+                            queue.push([newRow, newCol]);
+                        } else {
+                            borders.add(this.board[newRow][newCol]);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Nếu vùng trống chỉ giáp với một màu, thuộc về màu đó
+        if (borders.size === 1) {
+            return { owner: Array.from(borders)[0], size };
+        }
+        return { owner: null, size: 0 };
+    }
+
+    updateScore() {
+        const territory = this.calculateTerritory();
+        const komi = 6.5; // Điểm komi cho quân trắng
+
+        // Tính tổng điểm = lãnh thổ + số quân bắt được
+        const blackScore = territory.black + this.capturedStones.black;
+        const whiteScore = territory.white + this.capturedStones.white + komi;
+
+        // Cập nhật hiển thị điểm
+        document.getElementById('blackScore').textContent = blackScore.toFixed(1);
+        document.getElementById('whiteScore').textContent = whiteScore.toFixed(1);
+    }
+
+    endGame() {
+        if (this.isGameOver) return;
+        
+        this.isGameOver = true;
+        const territory = this.calculateTerritory();
+        const komi = 6.5;
+        
+        const blackScore = territory.black + this.capturedStones.black;
+        const whiteScore = territory.white + this.capturedStones.white + komi;
+        
+        let winner;
+        let message;
+        
+        if (blackScore > whiteScore) {
+            winner = 'black';
+            message = `Đen thắng với ${blackScore.toFixed(1)} điểm (Trắng: ${whiteScore.toFixed(1)} điểm)`;
+        } else if (whiteScore > blackScore) {
+            winner = 'white';
+            message = `Trắng thắng với ${whiteScore.toFixed(1)} điểm (Đen: ${blackScore.toFixed(1)} điểm)`;
+        } else {
+            message = `Hòa! Cả hai bên đều có ${blackScore.toFixed(1)} điểm`;
+        }
+
+        // Hiển thị thông báo kết quả
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'game-result';
+        resultDiv.innerHTML = `
+            <div class="result-content">
+                <h2>Kết thúc ván</h2>
+                <p>${message}</p>
+                <button onclick="this.parentElement.parentElement.remove()">Đóng</button>
+            </div>
+        `;
+        document.body.appendChild(resultDiv);
+
+        // Vô hiệu hóa bàn cờ
+        document.getElementById('board').style.pointerEvents = 'none';
+    }
+
+    getStarPoints() {
+        const starPoints = [];
+        if (this.boardSize === 19) {
+            // 9 sao điểm cho bàn 19x19
+            const positions = [3, 9, 15];
+            for (const i of positions) {
+                for (const j of positions) {
+                    starPoints.push([i, j]);
+                }
+            }
+        } else if (this.boardSize === 13) {
+            // 5 sao điểm cho bàn 13x13
+            const positions = [3, 6, 9];
+            for (const i of positions) {
+                for (const j of positions) {
+                    if ((i === 6 && j === 6) || (i !== 6 && j !== 6)) {
+                        starPoints.push([i, j]);
+                    }
+                }
+            }
+        } else if (this.boardSize === 9) {
+            // 5 sao điểm cho bàn 9x9
+            const positions = [2, 4, 6];
+            for (const i of positions) {
+                for (const j of positions) {
+                    if ((i === 4 && j === 4) || (i !== 4 && j !== 4)) {
+                        starPoints.push([i, j]);
+                    }
+                }
+            }
+        }
+        return starPoints;
     }
 }
 
