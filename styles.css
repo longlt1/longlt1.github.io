@@ -54,16 +54,55 @@ button:hover {
     margin-bottom: 30px;
 }
 
+.board-size {
+    margin-top: 10px;
+}
+
+.board-size h4 {
+    margin: 0 0 5px 0;
+    font-size: 14px;
+}
+
+.board-size select {
+    width: 100%;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
 #board {
-    width: 600px;
-    height: 600px;
+    display: grid;
     background-color: #DEB887;
+    padding: 20px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    margin: 20px auto;
     position: relative;
     border: 2px solid #8B4513;
-    display: grid;
+}
+
+/* Kích thước bàn cờ 9x9 */
+#board[data-size="9"] {
+    grid-template-columns: repeat(9, 1fr);
+    grid-template-rows: repeat(9, 1fr);
+    width: 400px;
+    height: 400px;
+}
+
+/* Kích thước bàn cờ 13x13 */
+#board[data-size="13"] {
+    grid-template-columns: repeat(13, 1fr);
+    grid-template-rows: repeat(13, 1fr);
+    width: 500px;
+    height: 500px;
+}
+
+/* Kích thước bàn cờ 19x19 */
+#board[data-size="19"] {
     grid-template-columns: repeat(19, 1fr);
     grid-template-rows: repeat(19, 1fr);
-    padding: 20px;
+    width: 600px;
+    height: 600px;
 }
 
 .info-panel {
@@ -107,18 +146,20 @@ h3 {
     display: flex;
     justify-content: center;
     align-items: center;
+    background-color: transparent;
 }
 
 /* Vẽ đường kẻ ngang */
 .intersection::before {
     content: '';
     position: absolute;
-    width: 100%;
+    width: 200%;
     height: 1px;
     background-color: #000;
     top: 50%;
-    left: 0;
+    left: -50%;
     transform: translateY(-50%);
+    z-index: 1;
 }
 
 /* Vẽ đường kẻ dọc */
@@ -126,30 +167,39 @@ h3 {
     content: '';
     position: absolute;
     width: 1px;
-    height: 100%;
+    height: 200%;
     background-color: #000;
     left: 50%;
-    top: 0;
+    top: -50%;
     transform: translateX(-50%);
+    z-index: 1;
 }
 
 /* Điều chỉnh đường kẻ cho các điểm giao ở biên */
-.intersection[data-col="0"]::before {
+#board[data-size="9"] .intersection[data-col="0"]::before,
+#board[data-size="13"] .intersection[data-col="0"]::before,
+#board[data-size="19"] .intersection[data-col="0"]::before {
     width: 50%;
     left: 50%;
 }
 
-.intersection[data-col="18"]::before {
+#board[data-size="9"] .intersection[data-col="8"]::before,
+#board[data-size="13"] .intersection[data-col="12"]::before,
+#board[data-size="19"] .intersection[data-col="18"]::before {
     width: 50%;
     left: 0;
 }
 
-.intersection[data-row="0"]::after {
+#board[data-size="9"] .intersection[data-row="0"]::after,
+#board[data-size="13"] .intersection[data-row="0"]::after,
+#board[data-size="19"] .intersection[data-row="0"]::after {
     height: 50%;
     top: 50%;
 }
 
-.intersection[data-row="18"]::after {
+#board[data-size="9"] .intersection[data-row="8"]::after,
+#board[data-size="13"] .intersection[data-row="12"]::after,
+#board[data-size="19"] .intersection[data-row="18"]::after {
     height: 50%;
     top: 0;
 }
@@ -190,8 +240,8 @@ h3 {
 
 /* Style cho quân cờ */
 .stone {
-    width: 85%;
-    height: 85%;
+    width: 90%;
+    height: 90%;
     border-radius: 50%;
     position: absolute;
     z-index: 2;
@@ -206,22 +256,40 @@ h3 {
     background: radial-gradient(circle at 30% 30%, #fff, #ddd);
 }
 
+/* Điểm sao */
+.star-point::before {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background-color: #000;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+}
+
+/* Điều chỉnh kích thước điểm sao theo bàn cờ */
+#board[data-size="9"] .star-point::before {
+    width: 8px;
+    height: 8px;
+}
+
+#board[data-size="13"] .star-point::before {
+    width: 6px;
+    height: 6px;
+}
+
+#board[data-size="19"] .star-point::before {
+    width: 4px;
+    height: 4px;
+}
+
 /* Thêm hiệu ứng hover cho các điểm giao */
 .intersection:hover {
     background-color: rgba(0, 0, 0, 0.1);
     cursor: pointer;
-}
-
-/* Thêm viền cho bàn cờ */
-#board::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    border: 2px solid #8B4513;
-    pointer-events: none;
 }
 
 /* Menu chính */
@@ -417,10 +485,34 @@ h3 {
         align-items: center;
     }
 
-    #board {
-        width: 100%;
-        max-width: 400px;
+    #board[data-size="9"] {
+        width: 300px;
+        height: 300px;
+    }
+
+    #board[data-size="13"] {
+        width: 400px;
         height: 400px;
+    }
+
+    #board[data-size="19"] {
+        width: 500px;
+        height: 500px;
+    }
+
+    #board[data-size="9"] .stone {
+        width: 25px;
+        height: 25px;
+    }
+
+    #board[data-size="13"] .stone {
+        width: 22px;
+        height: 22px;
+    }
+
+    #board[data-size="19"] .stone {
+        width: 20px;
+        height: 20px;
     }
 
     .info-panel {

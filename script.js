@@ -4,9 +4,28 @@ class GoGame {
         this.board = Array(this.boardSize).fill().map(() => Array(this.boardSize).fill(null));
         this.currentPlayer = 'black';
         this.history = [];
+        this.ai = new GoAI();
+        this.gameMode = 'pvp';
         this.initializeBoard();
         this.setupEventListeners();
         this.setupMenu();
+        this.setupGameMode();
+        this.setupBoardSize();
+    }
+
+    setupBoardSize() {
+        const boardSizeSelect = document.getElementById('boardSize');
+        const board = document.getElementById('board');
+
+        boardSizeSelect.addEventListener('change', (e) => {
+            const newSize = parseInt(e.target.value);
+            this.boardSize = newSize;
+            board.setAttribute('data-size', newSize);
+            this.newGame();
+        });
+
+        // Set initial board size
+        board.setAttribute('data-size', this.boardSize);
     }
 
     initializeBoard() {
@@ -19,6 +38,26 @@ class GoGame {
                 intersection.className = 'intersection';
                 intersection.dataset.row = i;
                 intersection.dataset.col = j;
+
+                // Thêm điểm sao cho bàn cờ 19x19
+                if (this.boardSize === 19) {
+                    if ((i === 3 || i === 9 || i === 15) && (j === 3 || j === 9 || j === 15)) {
+                        intersection.classList.add('star-point');
+                    }
+                }
+                // Thêm điểm sao cho bàn cờ 13x13
+                else if (this.boardSize === 13) {
+                    if ((i === 3 || i === 6 || i === 9) && (j === 3 || j === 6 || j === 9)) {
+                        intersection.classList.add('star-point');
+                    }
+                }
+                // Thêm điểm sao cho bàn cờ 9x9
+                else if (this.boardSize === 9) {
+                    if ((i === 2 || i === 4 || i === 6) && (j === 2 || j === 4 || j === 6)) {
+                        intersection.classList.add('star-point');
+                    }
+                }
+
                 boardElement.appendChild(intersection);
             }
         }
@@ -38,6 +77,59 @@ class GoGame {
         document.getElementById('newGame').addEventListener('click', () => this.newGame());
         document.getElementById('undo').addEventListener('click', () => this.undo());
         document.getElementById('hint').addEventListener('click', () => this.showHint());
+    }
+
+    setupGameMode() {
+        const gameModeSelect = document.getElementById('gameMode');
+        const aiSettings = document.querySelector('.ai-settings');
+        const aiHint = document.querySelector('.ai-hint');
+        const externalAI = document.getElementById('externalAI');
+        const apiKeyInput = document.getElementById('apiKey');
+
+        gameModeSelect.addEventListener('change', (e) => {
+            this.gameMode = e.target.value;
+            if (this.gameMode === 'pve' || this.gameMode === 'learning') {
+                aiSettings.style.display = 'block';
+                aiHint.style.display = 'block';
+            } else {
+                aiSettings.style.display = 'none';
+                aiHint.style.display = 'none';
+            }
+            this.newGame();
+        });
+
+        // Xử lý thay đổi độ khó AI
+        document.getElementById('aiDifficulty').addEventListener('change', (e) => {
+            this.ai.difficulty = e.target.value;
+        });
+
+        // Xử lý thay đổi màu quân AI
+        document.getElementById('aiColor').addEventListener('change', (e) => {
+            if (this.gameMode === 'pve') {
+                this.newGame();
+            }
+        });
+
+        // Xử lý thay đổi AI bên ngoài
+        externalAI.addEventListener('change', (e) => {
+            const selectedAI = e.target.value;
+            if (selectedAI === 'none') {
+                apiKeyInput.style.display = 'none';
+                this.ai.setExternalAI(null);
+            } else {
+                apiKeyInput.style.display = 'block';
+                apiKeyInput.placeholder = selectedAI === 'chatgpt' ? 'OpenAI API Key' : 'Google API Key';
+            }
+        });
+
+        // Xử lý nhập API Key
+        apiKeyInput.addEventListener('change', (e) => {
+            const apiKey = e.target.value.trim();
+            if (apiKey) {
+                const selectedAI = externalAI.value;
+                this.ai.setExternalAI(selectedAI, apiKey);
+            }
+        });
     }
 
     makeMove(row, col) {
@@ -62,6 +154,29 @@ class GoGame {
         this.updateBoard();
         this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black';
         this.updateCurrentPlayer();
+
+        // Xử lý nước đi của AI
+        if (this.gameMode === 'pve' || this.gameMode === 'learning') {
+            const aiColor = document.getElementById('aiColor').value;
+            if (this.currentPlayer === aiColor) {
+                setTimeout(() => this.makeAIMove(), 500);
+            }
+        }
+    }
+
+    async makeAIMove() {
+        if (this.gameMode === 'learning') {
+            const hint = await this.ai.getLessonHint();
+            if (hint) {
+                document.getElementById('aiMessage').textContent = hint.message;
+            }
+        }
+
+        const move = await this.ai.makeMove(this.board, this.currentPlayer);
+        if (move) {
+            const [row, col] = move;
+            this.makeMove(row, col);
+        }
     }
 
     isValidMove(row, col, board) {
@@ -179,24 +294,39 @@ class GoGame {
         this.updateCurrentPlayer();
     }
 
-    showHint() {
-        // Đây là một gợi ý đơn giản - chọn ô trống ngẫu nhiên
-        const emptySpaces = [];
-        for (let i = 0; i < this.boardSize; i++) {
-            for (let j = 0; j < this.boardSize; j++) {
-                if (this.board[i][j] === null) {
-                    emptySpaces.push([i, j]);
+    async showHint() {
+        if (this.gameMode === 'learning') {
+            const hint = await this.ai.getLessonHint();
+            if (hint) {
+                document.getElementById('aiMessage').textContent = hint.message;
+                // Highlight các nước đi hợp lệ
+                hint.validMoves.forEach(([row, col]) => {
+                    const intersection = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                    intersection.style.backgroundColor = 'rgba(255, 255, 0, 0.3)';
+                    setTimeout(() => {
+                        intersection.style.backgroundColor = '';
+                    }, 1000);
+                });
+            }
+        } else {
+            // Gợi ý nước đi ngẫu nhiên cho chế độ thường
+            const emptySpaces = [];
+            for (let i = 0; i < this.boardSize; i++) {
+                for (let j = 0; j < this.boardSize; j++) {
+                    if (this.board[i][j] === null) {
+                        emptySpaces.push([i, j]);
+                    }
                 }
             }
-        }
-        
-        if (emptySpaces.length > 0) {
-            const [row, col] = emptySpaces[Math.floor(Math.random() * emptySpaces.length)];
-            const intersection = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
-            intersection.style.backgroundColor = 'rgba(255, 255, 0, 0.3)';
-            setTimeout(() => {
-                intersection.style.backgroundColor = '';
-            }, 1000);
+            
+            if (emptySpaces.length > 0) {
+                const [row, col] = emptySpaces[Math.floor(Math.random() * emptySpaces.length)];
+                const intersection = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                intersection.style.backgroundColor = 'rgba(255, 255, 0, 0.3)';
+                setTimeout(() => {
+                    intersection.style.backgroundColor = '';
+                }, 1000);
+            }
         }
     }
 
@@ -204,11 +334,9 @@ class GoGame {
         const menuItems = document.querySelectorAll('.menu-item');
         menuItems.forEach(item => {
             item.addEventListener('click', () => {
-                // Xóa active class từ tất cả các menu items và sections
                 menuItems.forEach(mi => mi.classList.remove('active'));
                 document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
                 
-                // Thêm active class cho menu item được click và section tương ứng
                 item.classList.add('active');
                 const sectionId = item.dataset.section;
                 document.getElementById(sectionId).classList.add('active');
@@ -218,9 +346,20 @@ class GoGame {
         // Xử lý các nút trong phần bài học
         document.querySelectorAll('.start-lesson').forEach(button => {
             button.addEventListener('click', (e) => {
-                const lessonTitle = e.target.parentElement.querySelector('h3').textContent;
-                alert(`Bắt đầu bài học: ${lessonTitle}`);
-                // TODO: Implement lesson logic
+                const lessonCard = e.target.closest('.lesson-card');
+                const lesson = lessonCard.dataset.lesson;
+                
+                // Chuyển sang chế độ học
+                document.getElementById('gameMode').value = 'learning';
+                document.querySelector('.ai-settings').style.display = 'block';
+                document.querySelector('.ai-hint').style.display = 'block';
+                
+                // Kích hoạt chế độ học
+                this.ai.startLearningMode(lesson);
+                this.newGame();
+                
+                // Chuyển sang tab chơi cờ
+                document.querySelector('[data-section="game"]').click();
             });
         });
 
