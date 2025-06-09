@@ -1,12 +1,36 @@
 class ChatGPTGoAI {
     constructor(apiKey) {
         this.apiKey = apiKey && apiKey.trim() ? apiKey : '';
-        this.model = "gpt-4";
+        this.model = "gpt-4.1";
     }
 
-    async testConnection() {
+    async listModels() {
         try {
             const res = await fetch('https://api.openai.com/v1/models', {
+                headers: {
+                    'Authorization': `Bearer ${this.apiKey}`
+                }
+            });
+
+            if (res.status === 200) {
+                const data = await res.json();
+                const models = data.data.map(model => model.id);
+                console.log('[ChatGPTGoAI] Available models:', models);
+                return models;
+            } else {
+                const err = await res.text();
+                console.error('[ChatGPTGoAI] Model list fetch failed:', err);
+                return [];
+            }
+        } catch (e) {
+            console.error('[ChatGPTGoAI] Error fetching model list:', e);
+            return [];
+        }
+    }
+
+    async testConnection(modelId = this.model) {
+        try {
+            const res = await fetch('https://api.openai.com/v1/models/${modelId}', {
                 headers: { 'Authorization': `Bearer ${this.apiKey}` }
             });
             if (res.status === 200) {

@@ -542,4 +542,37 @@ h3 {
         max-width: 400px;
         margin-top: 20px;
     }
+}
+
+.game-result {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+.result-content {
+  background: #fff;
+  border-radius: 12px;
+  padding: 32px 28px 24px 28px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+  text-align: center;
+  min-width: 260px;
+}
+#closeResult {
+  margin-top: 18px;
+  padding: 8px 32px;
+  border-radius: 8px;
+  background: #36a3f7;
+  color: #fff;
+  border: none;
+  font-size: 1.1em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+#closeResult:hover {
+  background: #258ad6;
 } 

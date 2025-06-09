@@ -11,6 +11,7 @@ class GoGame {
         this.capturedStones = { black: 0, white: 0 };
         this.isGameOver = false;
         this.boardWidth = Math.min(window.innerWidth - 40, 400); // Giới hạn kích thước tối đa
+        this.state = 'init'; // Các state: init, playing, ended
         this.initializeBoard();
         this.setupEventListeners();
         this.setupMenu();
@@ -113,7 +114,11 @@ class GoGame {
     setupEventListeners() {
         const board = document.getElementById('board');
         board.addEventListener('click', (e) => {
-            if (this.isAIThinking) {
+            if (
+                this.state !== 'playing' ||
+                (this.gameMode === 'pve' && this.currentPlayer === document.getElementById('aiColor').value) ||
+                this.isAIThinking
+            ) {
                 return;
             }
             const intersection = e.target.closest('.intersection');
@@ -184,12 +189,17 @@ class GoGame {
 
     updatePlayerNames() {
         const aiColor = document.getElementById('aiColor').value;
-        if (aiColor === 'black') {
-            document.getElementById('blackPlayerName').textContent = 'AI (Đen)';
-            document.getElementById('whitePlayerName').textContent = 'Người chơi (Trắng)';
+        if (this.gameMode === 'pve') {
+            if (aiColor === 'black') {
+                document.getElementById('blackPlayerName').textContent = 'AI (Đen)';
+                document.getElementById('whitePlayerName').textContent = 'Người chơi (Trắng)';
+            } else {
+                document.getElementById('blackPlayerName').textContent = 'Người chơi (Đen)';
+                document.getElementById('whitePlayerName').textContent = 'AI (Trắng)';
+            }
         } else {
-            document.getElementById('blackPlayerName').textContent = 'Người chơi (Đen)';
-            document.getElementById('whitePlayerName').textContent = 'AI (Trắng)';
+            document.getElementById('blackPlayerName').textContent = 'Người chơi Đen';
+            document.getElementById('whitePlayerName').textContent = 'Người chơi Trắng';
         }
     }
 
@@ -367,6 +377,13 @@ class GoGame {
     updateCurrentPlayer() {
         document.getElementById('currentPlayer').textContent = 
             this.currentPlayer === 'black' ? 'Đen' : 'Trắng';
+        // Nếu đang playing thì cập nhật lại thông tin lượt
+        if (this.state === 'playing') {
+            const stateEl = document.getElementById('gameState');
+            if (stateEl) {
+                stateEl.textContent = 'playing - Đến lượt: ' + (this.currentPlayer === 'black' ? 'Đen' : 'Trắng');
+            }
+        }
     }
 
     newGame() {
@@ -381,14 +398,38 @@ class GoGame {
         this.initializeBoard();
         this.updateCurrentPlayer();
         this.updateScore();
+        this.setState('playing');
 
-        // Tự động đi nước đầu tiên nếu AI là quân đen
-        if ((this.gameMode === 'pve') && 
-            document.getElementById('aiColor').value === 'black') {
-            this.isAIThinking = true;
-            document.getElementById('board').style.cursor = 'wait';
-            setTimeout(() => this.makeAIMove(), 500);
+        // Chọn AI phù hợp dựa vào apiKey
+        const apiKeyInput = document.getElementById('apiKey');
+        const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
+        if (apiKey) {
+            this.ai = new ChatGPTGoAI(apiKey);
+            // this.ai.listModels();
+            // Gửi 1 message test tới ChatGPT và log kết quả
+            this.ai.callChatGPT('Say hello!').then(res => {
+                console.log('[ChatGPTGoAI Test]', res);
+            }).catch(err => {
+                console.error('[ChatGPTGoAI Test Error]', err);
+            });
+        } else {
+            this.ai = new GoAI(); // AI local
+            console.log('Hello World!');
         }
+
+        // Xác định aiColor và currentPlayer
+        if (this.gameMode === 'pve') {
+            const aiColor = document.getElementById('aiColor').value;
+            this.currentPlayer = 'black';
+            // Nếu AI là đen, AI đi trước
+            if (aiColor === 'black') {
+                this.isAIThinking = true;
+                setTimeout(() => this.makeAIMove(), 500);
+            }
+        } else {
+            this.currentPlayer = 'black';
+        }
+        this.updateCurrentPlayer();
     }
 
     undo() {
@@ -562,41 +603,36 @@ class GoGame {
 
     endGame() {
         if (this.isGameOver) return;
-        
         this.isGameOver = true;
-        const territory = this.calculateTerritory();
-        const komi = 6.5;
-        
-        const blackScore = territory.black + this.capturedStones.black;
-        const whiteScore = territory.white + this.capturedStones.white + komi;
-        
-        let winner;
-        let message;
-        
-        if (blackScore > whiteScore) {
-            winner = 'black';
-            message = `Đen thắng với ${blackScore.toFixed(1)} điểm (Trắng: ${whiteScore.toFixed(1)} điểm)`;
-        } else if (whiteScore > blackScore) {
-            winner = 'white';
-            message = `Trắng thắng với ${whiteScore.toFixed(1)} điểm (Đen: ${blackScore.toFixed(1)} điểm)`;
-        } else {
-            message = `Hòa! Cả hai bên đều có ${blackScore.toFixed(1)} điểm`;
+        this.setState('ended');
+        // Hiển thị popup kết quả
+        const modal = document.getElementById('gameResultModal');
+        const title = document.getElementById('resultTitle');
+        const score = document.getElementById('resultScore');
+        if (modal && title && score) {
+            // Tính điểm
+            const blackScore = parseFloat(document.getElementById('blackScore').textContent);
+            const whiteScore = parseFloat(document.getElementById('whiteScore').textContent);
+            if (blackScore > whiteScore) {
+                title.textContent = 'Đen thắng!';
+            } else if (whiteScore > blackScore) {
+                title.textContent = 'Trắng thắng!';
+            } else {
+                title.textContent = 'Hòa!';
+            }
+            score.textContent = `Điểm - Đen: ${blackScore} | Trắng: ${whiteScore}`;
+            modal.style.display = 'flex';
         }
-
-        // Hiển thị thông báo kết quả
-        const resultDiv = document.createElement('div');
-        resultDiv.className = 'game-result';
-        resultDiv.innerHTML = `
-            <div class="result-content">
-                <h2>Kết thúc ván</h2>
-                <p>${message}</p>
-                <button onclick="this.parentElement.parentElement.remove()">Đóng</button>
-            </div>
-        `;
-        document.body.appendChild(resultDiv);
-
-        // Vô hiệu hóa bàn cờ
-        document.getElementById('board').style.pointerEvents = 'none';
+        // Gán sự kiện cho nút OK chỉ 1 lần
+        const closeBtn = document.getElementById('closeResult');
+        if (closeBtn) {
+            closeBtn.onclick = null;
+            closeBtn.addEventListener('click', () => {
+                modal.style.display = 'none';
+                this.setState('init');
+                this.isGameOver = false;
+            }, { once: true });
+        }
     }
 
     getStarPoints() {
@@ -631,6 +667,33 @@ class GoGame {
             }
         }
         return starPoints;
+    }
+
+    setState(newState) {
+        this.state = newState;
+        const stateEl = document.getElementById('gameState');
+        if (stateEl) {
+            let text = newState;
+            if (newState === 'playing') {
+                text += ' - Đến lượt: ' + (this.currentPlayer === 'black' ? 'Đen' : 'Trắng');
+            }
+            stateEl.textContent = text;
+        }
+        // Ẩn/hiện phần setting khi chuyển state
+        const gameModeDiv = document.querySelector('.game-mode');
+        const boardSizeDiv = document.querySelector('.board-size');
+        const aiSettingsDiv = document.querySelector('.ai-settings');
+        if (newState === 'playing') {
+            if (gameModeDiv) gameModeDiv.style.display = 'none';
+            if (boardSizeDiv) boardSizeDiv.style.display = 'none';
+            if (aiSettingsDiv) aiSettingsDiv.style.display = 'none';
+        } else {
+            if (gameModeDiv) gameModeDiv.style.display = '';
+            if (boardSizeDiv) boardSizeDiv.style.display = '';
+            if (aiSettingsDiv) aiSettingsDiv.style.display = (this.gameMode === 'pve') ? 'block' : 'none';
+        }
+        // Luôn cập nhật tên người chơi khi về init
+        this.updatePlayerNames();
     }
 }
 

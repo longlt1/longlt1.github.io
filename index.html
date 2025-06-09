@@ -36,7 +36,7 @@
                             <h3>Chế độ chơi</h3>
                             <select id="gameMode">
                                 <option value="pvp">Người vs Người</option>
-                                <option value="pve">Chơi với AI</option>
+                                <option value="pve" selected>Chơi với AI</option>
                                 <option value="learning">Chế độ học</option>
                             </select>
                             <div class="board-size">
@@ -48,7 +48,7 @@
                                 </select>
                             </div>
                         </div>
-                        <div class="ai-settings" style="display: none;">
+                        <div class="ai-settings" style="display: block;">
                             <h3>Cài đặt AI</h3>
                             <select id="aiDifficulty">
                                 <option value="beginner">Người mới</option>
@@ -59,7 +59,7 @@
                                 <option value="black">Đen</option>
                                 <option value="white">Trắng</option>
                             </select>
-                            <input type="text" id="apiKey" placeholder="Nhập OpenAI API Key" style="margin-top:8px;display:none;">
+                            <input type="text" id="apiKey" placeholder="Nhập OpenAI API Key" style="margin-top:8px;display:block;">
                         </div>
                         <div class="score">
                             <h3>Điểm</h3>
@@ -87,6 +87,9 @@
                         </div>
                         <div class="ai-hint" style="display: none;">
                             <p id="aiMessage"></p>
+                        </div>
+                        <div class="game-state-row">
+                            <strong>Trạng thái ván đấu:</strong> <span id="gameState">init</span>
                         </div>
                     </div>
                 </div>
@@ -164,7 +167,15 @@
             </section>
         </main>
     </div>
+    <div id="gameResultModal" class="game-result" style="display:none;">
+      <div class="result-content">
+        <h2 id="resultTitle"></h2>
+        <p id="resultScore"></p>
+        <button id="closeResult">OK</button>
+      </div>
+    </div>
     <script src="ai.js"></script>
+    <script src="chatgpt-ai.js"></script>
     <script src="script.js"></script>
 </body>
 </html> 
