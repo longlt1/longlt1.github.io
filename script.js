@@ -257,6 +257,22 @@ class GoGame {
                 this.isAIThinking = true;
                 document.getElementById('board').style.cursor = 'wait';
                 setTimeout(() => this.makeAIMove(), 500);
+            } else {
+                // Check if there are no valid moves left for the human player
+                let hasValidMove = false;
+                for (let i = 0; i < this.boardSize; i++) {
+                    for (let j = 0; j < this.boardSize; j++) {
+                        if (this.board[i][j] === null && this.isValidMove(i, j, this.board)) {
+                            hasValidMove = true;
+                            break;
+                        }
+                    }
+                    if (hasValidMove) break;
+                }
+                if (!hasValidMove) {
+                    console.log('No valid moves left for human player');
+                    this.endGame();
+                }
             }
         }
     }
