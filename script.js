@@ -206,7 +206,7 @@ class GoGame {
 
     makeMove(row, col) {
         console.log('makeMove - Player turn: ' + this.currentPlayer + ' - Type: ' + this.currentPlayerType);
-        if (this.currentPlayerType === 'human' && this.isAIThinking) return; // Return if human clicks while AI is thinking
+        if (this.currentPlayerType === 'human' && this.currentPlayer !== document.getElementById('aiColor').value) return; // Only allow human clicks on their turn
         if (this.board[row][col] !== null) return;
 
         // Kiểm tra luật ko
@@ -251,7 +251,7 @@ class GoGame {
         this.updateScore();
 
         // Xử lý nước đi của AI
-        if (this.gameMode === 'pve') {
+        if (this.gameMode === 'pve' && !this.isGameOver) {
             const aiColor = document.getElementById('aiColor').value;
             if (this.currentPlayer === aiColor) {
                 this.isAIThinking = true;
