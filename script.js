@@ -5,13 +5,14 @@ class GoGame {
         this.currentPlayer = 'black';
         this.history = [];
         this.ai = new GoAI();
-        this.gameMode = 'pvp';
+        this.gameMode = document.getElementById('gameMode').value;
         this.isAIThinking = false;
         this.autoPlay = false;
         this.capturedStones = { black: 0, white: 0 };
         this.isGameOver = false;
         this.boardWidth = Math.min(window.innerWidth - 40, 400); // Giới hạn kích thước tối đa
         this.state = 'init'; // Các state: init, playing, ended
+        this.currentPlayerType = 'human'; // Variable to show if current player is AI or human
         this.initializeBoard();
         this.setupEventListeners();
         this.setupMenu();
@@ -204,7 +205,9 @@ class GoGame {
     }
 
     makeMove(row, col) {
-        if (this.board[row][col] !== null || this.isAIThinking) return;
+        console.log('makeMove - Player turn: ' + this.currentPlayer + ' - Type: ' + this.currentPlayerType);
+        if (this.currentPlayerType === 'human' && this.isAIThinking) return; // Return if human clicks while AI is thinking
+        if (this.board[row][col] !== null) return;
 
         // Kiểm tra luật ko
         const tempBoard = this.board.map(row => [...row]);
@@ -243,6 +246,7 @@ class GoGame {
 
         this.updateBoard();
         this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black';
+        this.currentPlayerType = this.currentPlayer === document.getElementById('aiColor').value ? 'AI' : 'human';
         this.updateCurrentPlayer();
         this.updateScore();
 
@@ -258,8 +262,10 @@ class GoGame {
     }
 
     async makeAIMove() {
+        console.log('makeAIMove - AI turn');
         const move = await this.ai.makeMove(this.board, this.currentPlayer);
         if (move) {
+            console.log('makeAIMove - AI move: ' + move);
             const [row, col] = move;
             this.makeMove(row, col);
         }
@@ -375,18 +381,20 @@ class GoGame {
     }
 
     updateCurrentPlayer() {
+        console.log('updateCurrentPlayer - Player turn: ' + this.currentPlayer + ' - Type: ' + this.currentPlayerType);
         document.getElementById('currentPlayer').textContent = 
             this.currentPlayer === 'black' ? 'Đen' : 'Trắng';
         // Nếu đang playing thì cập nhật lại thông tin lượt
         if (this.state === 'playing') {
             const stateEl = document.getElementById('gameState');
             if (stateEl) {
-                stateEl.textContent = 'playing - Đến lượt: ' + (this.currentPlayer === 'black' ? 'Đen' : 'Trắng');
+                stateEl.textContent = 'playing - Đến lượt: ' + (this.currentPlayer === 'black' ? 'Đen' : 'Trắng') + ' (' + this.currentPlayerType + ')';
             }
         }
     }
 
     newGame() {
+        console.log('newGame - Player turn: ' + this.currentPlayer + ' - Type: ' + this.currentPlayerType);
         this.board = Array(this.boardSize).fill().map(() => Array(this.boardSize).fill(null));
         this.currentPlayer = 'black';
         this.history = [];
@@ -407,7 +415,7 @@ class GoGame {
             this.ai = new ChatGPTGoAI(apiKey);
             // this.ai.listModels();
             // Gửi 1 message test tới ChatGPT và log kết quả
-            this.ai.callChatGPT('Say hello!').then(res => {
+            this.ai.callChatGPT('Hello AI').then(res => {
                 console.log('[ChatGPTGoAI Test]', res);
             }).catch(err => {
                 console.error('[ChatGPTGoAI Test Error]', err);
@@ -419,15 +427,21 @@ class GoGame {
 
         // Xác định aiColor và currentPlayer
         if (this.gameMode === 'pve') {
+            console.log('newGame - Player turn: PVE');
             const aiColor = document.getElementById('aiColor').value;
             this.currentPlayer = 'black';
+            this.currentPlayerType = aiColor === 'black' ? 'AI' : 'human';
             // Nếu AI là đen, AI đi trước
             if (aiColor === 'black') {
+                console.log('newGame - Player turn: PVE - AI is black');
                 this.isAIThinking = true;
+                // Đợi 500ms trước khi AI đi nước đầu tiên để tạo hiệu ứng "suy nghĩ"
                 setTimeout(() => this.makeAIMove(), 500);
             }
         } else {
+            console.log('newGame - ' + this.gameMode);
             this.currentPlayer = 'black';
+            this.currentPlayerType = 'human';
         }
         this.updateCurrentPlayer();
     }
@@ -675,24 +689,17 @@ class GoGame {
         if (stateEl) {
             let text = newState;
             if (newState === 'playing') {
-                text += ' - Đến lượt: ' + (this.currentPlayer === 'black' ? 'Đen' : 'Trắng');
+                text += ' - Đến lượt: ' + (this.currentPlayer === 'black' ? 'Đen' : 'Trắng') + ' (' + this.currentPlayerType + ')';
             }
             stateEl.textContent = text;
         }
-        // Ẩn/hiện phần setting khi chuyển state
+        // Luôn hiển thị các phần setting
         const gameModeDiv = document.querySelector('.game-mode');
         const boardSizeDiv = document.querySelector('.board-size');
         const aiSettingsDiv = document.querySelector('.ai-settings');
-        if (newState === 'playing') {
-            if (gameModeDiv) gameModeDiv.style.display = 'none';
-            if (boardSizeDiv) boardSizeDiv.style.display = 'none';
-            if (aiSettingsDiv) aiSettingsDiv.style.display = 'none';
-        } else {
-            if (gameModeDiv) gameModeDiv.style.display = '';
-            if (boardSizeDiv) boardSizeDiv.style.display = '';
-            if (aiSettingsDiv) aiSettingsDiv.style.display = (this.gameMode === 'pve') ? 'block' : 'none';
-        }
-        // Luôn cập nhật tên người chơi khi về init
+        if (gameModeDiv) gameModeDiv.style.display = '';
+        if (boardSizeDiv) boardSizeDiv.style.display = '';
+        if (aiSettingsDiv) aiSettingsDiv.style.display = (this.gameMode === 'pve') ? 'block' : 'none';
         this.updatePlayerNames();
     }
 }

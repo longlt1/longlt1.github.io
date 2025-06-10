@@ -7,19 +7,6 @@ class GoAI {
         this.useExternalAI = false;
     }
 
-    setExternalAI(type, apiKey) {
-        if (type === 'chatgpt') {
-            this.externalAI = new ExternalAI(apiKey);
-            this.useExternalAI = true;
-        } else if (type === 'gemini') {
-            this.externalAI = new GeminiAI(apiKey);
-            this.useExternalAI = true;
-        } else {
-            this.externalAI = null;
-            this.useExternalAI = false;
-        }
-    }
-
     // Chế độ dạy học
     startLearningMode(lesson) {
         this.learningMode = true;
