@@ -263,11 +263,22 @@ class GoGame {
 
     async makeAIMove() {
         console.log('makeAIMove - AI turn');
-        const move = await this.ai.makeMove(this.board, this.currentPlayer);
+        let move;
+        let attempts = 0;
+        const maxAttempts = this.boardSize * this.boardSize; // Check all possible positions
+
+        do {
+            move = await this.ai.makeMove(this.board, this.currentPlayer);
+            attempts++;
+        } while (move && !this.isValidMove(move[0], move[1], this.board) && attempts < maxAttempts);
+
         if (move) {
             console.log('makeAIMove - AI move: ' + move);
             const [row, col] = move;
             this.makeMove(row, col);
+        } else {
+            console.log('makeAIMove - No valid move found after ' + attempts + ' attempts');
+            this.endGame(); // End the game if no valid move is found
         }
         this.isAIThinking = false;
         document.getElementById('board').style.cursor = 'default';
