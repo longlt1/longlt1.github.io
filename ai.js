@@ -160,7 +160,7 @@ class GoAI {
             }
 
             const data = await response.json();
-            console.log('Move from Pachi:', data.move);
+            console.log('Response from Pachi:', data);
             
             // Convert GTP move format (e.g. "a1") to board coordinates
             if (data.move === 'pass') {
