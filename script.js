@@ -144,7 +144,6 @@ class GoGame {
         const gameModeSelect = document.getElementById('gameMode');
         const aiSettings = document.querySelector('.ai-settings');
         const aiHint = document.querySelector('.ai-hint');
-        const apiKeyInput = document.getElementById('apiKey');
 
         gameModeSelect.addEventListener('change', (e) => {
             this.gameMode = e.target.value;
@@ -152,13 +151,11 @@ class GoGame {
                 console.log('pve');
                 aiSettings.style.display = 'block';
                 aiHint.style.display = 'block';
-                if (apiKeyInput) apiKeyInput.style.display = 'block';
                 this.randomizeColors();
             } else {
                 console.log('pvp');
                 aiSettings.style.display = 'none';
                 aiHint.style.display = 'none';
-                if (apiKeyInput) apiKeyInput.style.display = 'none';
                 document.getElementById('blackPlayerName').textContent = 'Người chơi Đen';
                 document.getElementById('whitePlayerName').textContent = 'Người chơi Trắng';
             }
@@ -450,22 +447,9 @@ class GoGame {
         this.updateScore();
         this.setState('playing');
 
-        // Chọn AI phù hợp dựa vào apiKey
-        const apiKeyInput = document.getElementById('apiKey');
-        const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
-        if (apiKey) {
-            this.ai = new ChatGPTGoAI(apiKey);
-            // this.ai.listModels();
-            // Gửi 1 message test tới ChatGPT và log kết quả
-            this.ai.callChatGPT('Hello AI').then(res => {
-                console.log('[ChatGPTGoAI Test]', res);
-            }).catch(err => {
-                console.error('[ChatGPTGoAI Test Error]', err);
-            });
-        } else {
-            this.ai = new GoAI(); // AI local
-            console.log('Hello World!');
-        }
+        // Always use GoAI with EC2 server
+        this.ai = new GoAI();
+        console.log('Using KataGo on EC2');
 
         // Xác định aiColor và currentPlayer
         if (this.gameMode === 'pve') {

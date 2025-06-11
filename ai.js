@@ -5,6 +5,7 @@ class GoAI {
         this.currentLesson = null;
         this.externalAI = null;
         this.useExternalAI = false;
+        this.serverUrl = 'http://3.27.159.18:3000'; // Proxy Node kết nối tới Pachi
     }
 
     // Chế độ dạy học
@@ -65,7 +66,6 @@ class GoAI {
 
     // Chế độ chơi cờ
     async makeMove(board, player, invalidMoves = new Set()) {
-        // Ignore all stored moves in invalidMoves
         const validMoves = [];
         for (let i = 0; i < board.length; i++) {
             for (let j = 0; j < board.length; j++) {
@@ -75,10 +75,18 @@ class GoAI {
                 }
             }
         }
-
         if (validMoves.length === 0) return null;
 
-        // Fallback to basic AI if external AI is not available
+        let rank = 'intermediate';
+        if (this.difficulty === 'beginner') rank = 'beginner';
+        else if (this.difficulty === 'intermediate') rank = 'intermediate';
+        else if (this.difficulty === 'advanced' || this.difficulty === 'pro') rank = 'pro';
+
+        // Sử dụng Pachi để sinh nước đi
+        const pachiMove = await this.callPachi(board, player, rank);
+        if (pachiMove) return pachiMove;
+
+        // Fallback nếu Pachi không trả về nước đi
         switch(this.difficulty) {
             case 'beginner':
                 return this.makeBeginnerMove(board, player, validMoves);
@@ -88,6 +96,83 @@ class GoAI {
                 return this.makeAdvancedMove(board, player, validMoves);
             default:
                 return this.makeBeginnerMove(board, player, validMoves);
+        }
+    }
+
+    async callPachi(board, player, rank = 'intermediate') {
+        console.log('Calling Pachi for move generation, rank:', rank);
+        try {
+            // Luôn dùng fixed server URL
+            this.serverUrl = 'http://3.27.159.18:3000';
+            console.log('Using Pachi server:', this.serverUrl);
+
+            // Xóa bàn cờ
+            await fetch(`${this.serverUrl}/clear`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            // Gửi các nước đã đi
+            for (let i = 0; i < board.length; i++) {
+                for (let j = 0; j < board.length; j++) {
+                    if (board[i][j] === 'black') {
+                        await fetch(`${this.serverUrl}/play`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                color: 'b',
+                                move: `${String.fromCharCode(97 + j)}${board.length - i}`
+                            })
+                        });
+                    } else if (board[i][j] === 'white') {
+                        await fetch(`${this.serverUrl}/play`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                color: 'w',
+                                move: `${String.fromCharCode(97 + j)}${board.length - i}`
+                            })
+                        });
+                    }
+                }
+            }
+
+            // Lấy nước đi tiếp theo
+            const response = await fetch(`${this.serverUrl}/genmove`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    color: player === 'black' ? 'b' : 'w'
+                })
+            });
+
+            if (!response.ok) {
+                console.log('Failed to get move from Pachi');
+                throw new Error('Failed to get move from Pachi');
+            }
+
+            const data = await response.json();
+            console.log('Move from Pachi:', data.move);
+            
+            // Convert GTP move format (e.g. "a1") to board coordinates
+            if (data.move === 'pass') {
+                return null;
+            }
+            const col = data.move.charCodeAt(0) - 97;
+            const row = board.length - parseInt(data.move.slice(1));
+            return [row, col];
+        } catch (error) {
+            console.log('Failed to get move from Pachi');
+            console.error('Error calling Pachi:', error);
+            return null;
         }
     }
 
