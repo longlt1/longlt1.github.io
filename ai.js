@@ -5,7 +5,7 @@ class GoAI {
         this.currentLesson = null;
         this.externalAI = null;
         this.useExternalAI = false;
-        this.serverUrl = 'http://3.27.159.18:3000'; // Proxy Node kết nối tới Pachi
+        this.serverUrl = 'https://3.27.159.18:3000'; // Proxy Node kết nối tới Pachi
     }
 
     // Chế độ dạy học
@@ -103,7 +103,7 @@ class GoAI {
         console.log('Calling Pachi for move generation, rank:', rank);
         try {
             // Luôn dùng fixed server URL
-            this.serverUrl = 'http://3.27.159.18:3000';
+            //this.serverUrl = 'http://3.27.159.18:3000';
             console.log('Using Pachi server:', this.serverUrl);
 
             // Xóa bàn cờ
