@@ -12,7 +12,7 @@ class GoGame {
         this.isGameOver = false;
         this.boardWidth = Math.min(window.innerWidth - 40, 400); // Giới hạn kích thước tối đa
         this.state = 'init'; // Các state: init, playing, ended
-        this.currentPlayerType = 'human'; // Variable to show if current player is AI or human
+        this.currentPlayerType = this.currentPlayer === document.getElementById('aiColor').value ? 'AI' : 'human'; // Set based on current player and AI color
         this.initializeBoard();
         this.setupEventListeners();
         this.setupMenu();
@@ -107,7 +107,7 @@ class GoGame {
             const row = Math.round((y / rect.height) * (this.boardSize - 1));
             
             if (row >= 0 && row < this.boardSize && col >= 0 && col < this.boardSize) {
-                this.makeMove(row, col);
+                this.makeMove(row, col,'human');
             }
         });
     }
@@ -126,7 +126,7 @@ class GoGame {
             if (intersection) {
                 const row = parseInt(intersection.dataset.row);
                 const col = parseInt(intersection.dataset.col);
-                this.makeMove(row, col);
+                this.makeMove(row, col, 'human');
             }
         });
 
@@ -204,9 +204,9 @@ class GoGame {
         }
     }
 
-    makeMove(row, col) {
+    makeMove(row, col, player) {
         console.log('makeMove - Player turn: ' + this.currentPlayer + ' - Type: ' + this.currentPlayerType);
-        if (this.currentPlayerType === 'human' && this.currentPlayer !== document.getElementById('aiColor').value) return; // Only allow human clicks on their turn
+        if (player !== this.currentPlayerType) return; // Return if the player type does not match the current player type
         if (this.board[row][col] !== null) return;
 
         // Kiểm tra luật ko
@@ -280,20 +280,35 @@ class GoGame {
     async makeAIMove() {
         console.log('makeAIMove - AI turn');
         let move;
-        let attempts = 0;
-        const maxAttempts = this.boardSize * this.boardSize; // Check all possible positions
+        let invalidMoves = new Set(); // Store invalid moves
+
+        // Add all non-null moves to invalidMoves
+        for (let i = 0; i < this.boardSize; i++) {
+            for (let j = 0; j < this.boardSize; j++) {
+                if (this.board[i][j] !== null) {
+                    invalidMoves.add(`${i},${j}`);
+                }
+            }
+        }
 
         do {
-            move = await this.ai.makeMove(this.board, this.currentPlayer);
-            attempts++;
-        } while (move && !this.isValidMove(move[0], move[1], this.board) && attempts < maxAttempts);
+            move = await this.ai.makeMove(this.board, this.currentPlayer, invalidMoves);
+            if (move) {
+                const [row, col] = move;
+                const moveKey = `${row},${col}`;
+                if (invalidMoves.has(moveKey) || !this.isValidMove(row, col, this.board)) {
+                    invalidMoves.add(moveKey);
+                    move = null; // Reset move to try again
+                }
+            }
+        } while (move === null && invalidMoves.size < this.boardSize * this.boardSize);
 
         if (move) {
             console.log('makeAIMove - AI move: ' + move);
             const [row, col] = move;
-            this.makeMove(row, col);
+            this.makeMove(row, col, 'AI');
         } else {
-            console.log('makeAIMove - No valid move found after ' + attempts + ' attempts');
+            console.log('makeAIMove - No valid move found after checking all positions');
             this.endGame(); // End the game if no valid move is found
         }
         this.isAIThinking = false;

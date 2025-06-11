@@ -64,31 +64,30 @@ class GoAI {
     }
 
     // Chế độ chơi cờ
-    async makeMove(board, player) {
-        this.board = board;
-        this.currentPlayer = player;
-
-        if (this.learningMode) {
-            return this.makeLearningMove(board, player);
-        }
-
-        if (this.useExternalAI) {
-            const suggestion = await this.externalAI.getMoveSuggestion(board, player, `Độ khó: ${this.difficulty}`);
-            if (suggestion) {
-                return suggestion.move;
+    async makeMove(board, player, invalidMoves = new Set()) {
+        // Ignore all stored moves in invalidMoves
+        const validMoves = [];
+        for (let i = 0; i < board.length; i++) {
+            for (let j = 0; j < board.length; j++) {
+                const moveKey = `${i},${j}`;
+                if (!invalidMoves.has(moveKey) && board[i][j] === null) {
+                    validMoves.push([i, j]);
+                }
             }
         }
+
+        if (validMoves.length === 0) return null;
 
         // Fallback to basic AI if external AI is not available
         switch(this.difficulty) {
             case 'beginner':
-                return this.makeBeginnerMove(board, player);
+                return this.makeBeginnerMove(board, player, validMoves);
             case 'intermediate':
-                return this.makeIntermediateMove(board, player);
+                return this.makeIntermediateMove(board, player, validMoves);
             case 'advanced':
-                return this.makeAdvancedMove(board, player);
+                return this.makeAdvancedMove(board, player, validMoves);
             default:
-                return this.makeBeginnerMove(board, player);
+                return this.makeBeginnerMove(board, player, validMoves);
         }
     }
 
@@ -182,9 +181,8 @@ class GoAI {
     }
 
     // Các hàm tạo nước đi theo độ khó
-    makeBeginnerMove(board, player) {
-        const emptySpaces = this.getAllEmptyIntersections(board);
-        if (emptySpaces.length === 0) return null;
+    makeBeginnerMove(board, player, validMoves) {
+        if (validMoves.length === 0) return null;
         
         // Ưu tiên các nước đi gần quân đã có
         const territoryMoves = this.findTerritoryMoves(board, player);
@@ -192,10 +190,12 @@ class GoAI {
             return territoryMoves[Math.floor(Math.random() * territoryMoves.length)];
         }
         
-        return emptySpaces[Math.floor(Math.random() * emptySpaces.length)];
+        return validMoves[Math.floor(Math.random() * validMoves.length)];
     }
 
-    makeIntermediateMove(board, player) {
+    makeIntermediateMove(board, player, validMoves) {
+        if (validMoves.length === 0) return null;
+
         // Ưu tiên bắt quân nếu có cơ hội
         const captureMoves = this.findCaptureOpportunities(board, player);
         if (captureMoves.length > 0) {
@@ -209,13 +209,14 @@ class GoAI {
         }
 
         // Nếu không có nước đi tốt, chọn ngẫu nhiên
-        const emptySpaces = this.getAllEmptyIntersections(board);
-        return emptySpaces[Math.floor(Math.random() * emptySpaces.length)];
+        return validMoves[Math.floor(Math.random() * validMoves.length)];
     }
 
-    makeAdvancedMove(board, player) {
+    makeAdvancedMove(board, player, validMoves) {
+        if (validMoves.length === 0) return null;
+
         // TODO: Implement more sophisticated move generation
-        return this.makeIntermediateMove(board, player);
+        return this.makeIntermediateMove(board, player, validMoves);
     }
 
     makeLearningMove(board, player) {
