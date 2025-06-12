@@ -5,7 +5,7 @@ class GoAI {
         this.currentLesson = null;
         this.externalAI = null;
         this.useExternalAI = false;
-        this.serverUrl = 'https://3.27.159.18:3000'; // Proxy Node kết nối tới Pachi
+        this.serverUrl = 'http://3.27.159.18:3000'; // Proxy Node kết nối tới Pachi
     }
 
     // Chế độ dạy học
@@ -64,46 +64,25 @@ class GoAI {
         }
     }
 
-    // Chế độ chơi cờ
-    async makeMove(board, player, invalidMoves = new Set()) {
-        const validMoves = [];
-        for (let i = 0; i < board.length; i++) {
-            for (let j = 0; j < board.length; j++) {
-                const moveKey = `${i},${j}`;
-                if (!invalidMoves.has(moveKey) && board[i][j] === null) {
-                    validMoves.push([i, j]);
-                }
-            }
-        }
-        if (validMoves.length === 0) return null;
-
-        let rank = 'intermediate';
-        if (this.difficulty === 'beginner') rank = 'beginner';
-        else if (this.difficulty === 'intermediate') rank = 'intermediate';
-        else if (this.difficulty === 'advanced' || this.difficulty === 'pro') rank = 'pro';
-
-        // Sử dụng Pachi để sinh nước đi
-        const pachiMove = await this.callPachi(board, player, rank);
-        if (pachiMove) return pachiMove;
-
-        // Fallback nếu Pachi không trả về nước đi
-        switch(this.difficulty) {
-            case 'beginner':
-                return this.makeBeginnerMove(board, player, validMoves);
-            case 'intermediate':
-                return this.makeIntermediateMove(board, player, validMoves);
-            case 'advanced':
-                return this.makeAdvancedMove(board, player, validMoves);
-            default:
-                return this.makeBeginnerMove(board, player, validMoves);
-        }
+    // Hàm chuyển nước đi kiểu Go ("D4") sang row/col
+    pachiMoveToCoords(move, boardSize) {
+        if (!move || typeof move !== 'string') return null;
+        move = move.trim().toUpperCase();
+        if (move === 'PASS' || move === 'RESIGN') return null;
+        const colChar = move[0];
+        if (!colChar || colChar < 'A' || colChar > 'T') return null; // kiểm tra ký tự hợp lệ
+        const rowNum = parseInt(move.slice(1), 10);
+        if (isNaN(rowNum)) return null;
+        let col = colChar.charCodeAt(0) - 65; // 'A' = 0
+        if (colChar >= 'I') col -= 1; // Bỏ qua 'I' trong Go
+        const row = boardSize - rowNum;
+        return [row, col];
     }
 
     async callPachi(board, player, rank = 'intermediate') {
         console.log('Calling Pachi for move generation, rank:', rank);
         try {
-            // Luôn dùng fixed server URL
-            //this.serverUrl = 'http://3.27.159.18:3000';
+            this.serverUrl = 'http://3.27.159.18:3000';
             console.log('Using Pachi server:', this.serverUrl);
 
             // Xóa bàn cờ
@@ -161,14 +140,24 @@ class GoAI {
 
             const data = await response.json();
             console.log('Response from Pachi:', data);
-            
-            // Convert GTP move format (e.g. "a1") to board coordinates
-            if (data.move === 'pass') {
+
+            let moveStr = null;
+            if (data.response) {
+                const match = data.response.match(/=\s*([A-T][0-9]+|PASS|RESIGN)/i);
+                if (match && match[1]) {
+                    moveStr = match[1].toUpperCase();
+                } else {
+                    console.warn('Không parse được nước đi từ response:', data.response);
+                    return null;
+                }
+            } else {
+                console.warn('Không có trường response trong data:', data);
                 return null;
             }
-            const col = data.move.charCodeAt(0) - 97;
-            const row = board.length - parseInt(data.move.slice(1));
-            return [row, col];
+
+            const coords = this.pachiMoveToCoords(moveStr, board.length);
+            if (!coords) return null;
+            return coords;
         } catch (error) {
             console.log('Failed to get move from Pachi');
             console.error('Error calling Pachi:', error);
@@ -323,6 +312,40 @@ class GoAI {
                 return this.makeBeginnerMove(board, player);
             default:
                 return this.makeBeginnerMove(board, player);
+        }
+    }
+
+    async makeMove(board, player, invalidMoves = new Set()) {
+        const validMoves = [];
+        for (let i = 0; i < board.length; i++) {
+            for (let j = 0; j < board.length; j++) {
+                const moveKey = `${i},${j}`;
+                if (!invalidMoves.has(moveKey) && board[i][j] === null) {
+                    validMoves.push([i, j]);
+                }
+            }
+        }
+        if (validMoves.length === 0) return null;
+
+        let rank = 'intermediate';
+        if (this.difficulty === 'beginner') rank = 'beginner';
+        else if (this.difficulty === 'intermediate') rank = 'intermediate';
+        else if (this.difficulty === 'advanced' || this.difficulty === 'pro') rank = 'pro';
+
+        // Sử dụng Pachi để sinh nước đi
+        const pachiMove = await this.callPachi(board, player, rank);
+        if (pachiMove) return pachiMove;
+
+        // Fallback nếu Pachi không trả về nước đi
+        switch(this.difficulty) {
+            case 'beginner':
+                return this.makeBeginnerMove(board, player, validMoves);
+            case 'intermediate':
+                return this.makeIntermediateMove(board, player, validMoves);
+            case 'advanced':
+                return this.makeAdvancedMove(board, player, validMoves);
+            default:
+                return this.makeBeginnerMove(board, player, validMoves);
         }
     }
 } 
