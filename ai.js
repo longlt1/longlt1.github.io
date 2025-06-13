@@ -133,7 +133,7 @@ class GoAI {
             }
 
             let moveStr = null;
-            const match = genmoveResponse.match(/=\s*([A-T][0-9]+|PASS|RESIGN)/i);
+            const match = genmoveResponse.match(/([A-T][0-9]+|PASS|RESIGN)/i);
             if (match && match[1]) {
                 moveStr = match[1].toUpperCase();
             } else {
