@@ -5,7 +5,6 @@ class GoGame {
         this.board = Array(this.boardSize).fill().map(() => Array(this.boardSize).fill(null));
         this.currentPlayer = 'black';
         this.history = [];
-        // this.ai = new GoAI();
         this.gameMode = document.getElementById('gameMode').value;
         this.isAIThinking = false;
         this.autoPlay = false;
@@ -14,6 +13,8 @@ class GoGame {
         this.boardWidth = Math.min(window.innerWidth - 40, 400); // Giới hạn kích thước tối đa
         this.state = 'init'; // Các state: init, playing, ended
         this.currentPlayerType = this.currentPlayer === document.getElementById('aiColor').value ? 'AI' : 'human'; // Set based on current player and AI color
+        this.difficulty = document.getElementById('aiDifficulty').value; // Initialize difficulty
+        this.ai = new GoAI(this.difficulty);
         console.log('Created new game with ID:', this.id);
         this.initializeBoard();
         this.setupEventListeners();
@@ -166,7 +167,13 @@ class GoGame {
 
         // Xử lý thay đổi độ khó AI
         document.getElementById('aiDifficulty').addEventListener('change', (e) => {
-            this.ai.difficulty = e.target.value;
+            this.difficulty = e.target.value;
+            if (this.ai) {
+                this.ai.difficulty = e.target.value;
+            } else {
+                this.ai = new GoAI(this.difficulty);
+            }
+            this.newGame();
         });
 
         // Xử lý thay đổi màu quân AI
