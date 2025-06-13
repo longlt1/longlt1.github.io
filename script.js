@@ -1,5 +1,6 @@
 class GoGame {
     constructor() {
+        this.id = 'game_' + Math.random().toString(36).substr(2, 9); // Generate unique ID
         this.boardSize = 9;
         this.board = Array(this.boardSize).fill().map(() => Array(this.boardSize).fill(null));
         this.currentPlayer = 'black';
@@ -13,6 +14,7 @@ class GoGame {
         this.boardWidth = Math.min(window.innerWidth - 40, 400); // Giới hạn kích thước tối đa
         this.state = 'init'; // Các state: init, playing, ended
         this.currentPlayerType = this.currentPlayer === document.getElementById('aiColor').value ? 'AI' : 'human'; // Set based on current player and AI color
+        console.log('Created new game with ID:', this.id);
         this.initializeBoard();
         this.setupEventListeners();
         this.setupMenu();
@@ -289,7 +291,7 @@ class GoGame {
         }
 
         do {
-            move = await this.ai.makeMove(this.board, this.currentPlayer, invalidMoves);
+            move = await this.ai.makeMove(this.board, this.currentPlayer, invalidMoves, this.id);
             if (move) {
                 const [row, col] = move;
                 const moveKey = `${row},${col}`;

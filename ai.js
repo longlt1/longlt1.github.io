@@ -79,57 +79,40 @@ class GoAI {
         return [row, col];
     }
 
-    async callPachi(board, player, rank = 'intermediate') {
-        console.log('Calling Pachi for move generation, rank:', rank);
+    async callPachi(board, player, rank = 'intermediate', gameId = null) {
+        console.log('Calling Pachi for move generation, rank:', rank, 'gameId:', gameId);
         try {
-            // this.serverUrl = 'https://3.27.159.18:3000';
             console.log('Using Pachi server:', this.serverUrl);
 
-            // Xóa bàn cờ
-            await fetch(`${this.serverUrl}/clear`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
+            // Prepare all commands
+            const commands = ['clear_board'];
+            
+            // Add board size command
+            commands.push(`boardsize ${board.length}`);
 
-            // Gửi các nước đã đi
+            // Add all moves
             for (let i = 0; i < board.length; i++) {
                 for (let j = 0; j < board.length; j++) {
                     if (board[i][j] === 'black') {
-                        await fetch(`${this.serverUrl}/play`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                color: 'b',
-                                move: `${String.fromCharCode(97 + j)}${board.length - i}`
-                            })
-                        });
+                        commands.push(`play b ${String.fromCharCode(97 + j)}${board.length - i}`);
                     } else if (board[i][j] === 'white') {
-                        await fetch(`${this.serverUrl}/play`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                color: 'w',
-                                move: `${String.fromCharCode(97 + j)}${board.length - i}`
-                            })
-                        });
+                        commands.push(`play w ${String.fromCharCode(97 + j)}${board.length - i}`);
                     }
                 }
             }
 
-            // Lấy nước đi tiếp theo
-            const response = await fetch(`${this.serverUrl}/genmove`, {
+            // Add genmove command
+            commands.push(`genmove ${player === 'black' ? 'b' : 'w'}`);
+
+            // Send all commands in one request
+            const response = await fetch(`${this.serverUrl}/batch`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    color: player === 'black' ? 'b' : 'w'
+                    commands: commands,
+                    gameId: gameId
                 })
             });
 
@@ -141,17 +124,19 @@ class GoAI {
             const data = await response.json();
             console.log('Response from Pachi:', data);
 
+            // Get the genmove response
+            const genmoveResponse = data.responses[`genmove ${player === 'black' ? 'b' : 'w'}`];
+            if (!genmoveResponse) {
+                console.warn('No genmove response found');
+                return null;
+            }
+
             let moveStr = null;
-            if (data.response) {
-                const match = data.response.match(/=\s*([A-T][0-9]+|PASS|RESIGN)/i);
-                if (match && match[1]) {
-                    moveStr = match[1].toUpperCase();
-                } else {
-                    console.warn('Không parse được nước đi từ response:', data.response);
-                    return null;
-                }
+            const match = genmoveResponse.match(/=\s*([A-T][0-9]+|PASS|RESIGN)/i);
+            if (match && match[1]) {
+                moveStr = match[1].toUpperCase();
             } else {
-                console.warn('Không có trường response trong data:', data);
+                console.warn('Could not parse move from response:', genmoveResponse);
                 return null;
             }
 
@@ -315,7 +300,7 @@ class GoAI {
         }
     }
 
-    async makeMove(board, player, invalidMoves = new Set()) {
+    async makeMove(board, player, invalidMoves = new Set(), gameId = null) {
         const validMoves = [];
         for (let i = 0; i < board.length; i++) {
             for (let j = 0; j < board.length; j++) {
@@ -333,7 +318,7 @@ class GoAI {
         else if (this.difficulty === 'advanced' || this.difficulty === 'pro') rank = 'pro';
 
         // Sử dụng Pachi để sinh nước đi
-        const pachiMove = await this.callPachi(board, player, rank);
+        const pachiMove = await this.callPachi(board, player, rank, gameId);
         if (pachiMove) return pachiMove;
 
         // Fallback nếu Pachi không trả về nước đi
