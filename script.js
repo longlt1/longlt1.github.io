@@ -5,7 +5,7 @@ class GoGame {
         this.board = Array(this.boardSize).fill().map(() => Array(this.boardSize).fill(null));
         this.currentPlayer = 'black';
         this.history = [];
-        this.ai = new GoAI();
+        // this.ai = new GoAI();
         this.gameMode = document.getElementById('gameMode').value;
         this.isAIThinking = false;
         this.autoPlay = false;
@@ -442,6 +442,7 @@ class GoGame {
         this.isAIThinking = false;
         this.capturedStones = { black: 0, white: 0 };
         this.isGameOver = false;
+        this.difficulty = document.getElementById('aiDifficulty').value;
         document.getElementById('board').style.cursor = 'default';
         document.getElementById('board').style.pointerEvents = 'auto';
         this.initializeBoard();
@@ -450,8 +451,10 @@ class GoGame {
         this.setState('playing');
 
         // Always use GoAI with EC2 server
-        this.ai = new GoAI();
-        console.log('Using KataGo on EC2');
+        if(!this.ai) {
+            this.ai = new GoAI(this.difficulty);
+            console.log('Using Pachi on EC2');
+        }
 
         // Xác định aiColor và currentPlayer
         if (this.gameMode === 'pve') {
