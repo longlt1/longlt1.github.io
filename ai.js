@@ -112,7 +112,8 @@ class GoAI {
                 },
                 body: JSON.stringify({
                     commands: commands,
-                    gameId: gameId
+                    gameId: gameId,
+                    rank: rank
                 })
             });
 
