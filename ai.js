@@ -5,7 +5,7 @@ class GoAI {
         this.currentLesson = null;
         this.externalAI = null;
         this.useExternalAI = false;
-        this.serverUrl = 'https://3.27.159.18:3000'; // Proxy Node kết nối tới Pachi
+        this.serverUrl = 'https://igo.tnpglobal.vn/pachi'; // Proxy Node kết nối tới Pachi
     }
 
     // Chế độ dạy học
@@ -71,16 +71,18 @@ class GoAI {
         if (move === 'PASS' || move === 'RESIGN') return null;
         const colChar = move[0];
         if (!colChar || colChar < 'A' || colChar > 'T') return null; // kiểm tra ký tự hợp lệ
+        
         const rowNum = parseInt(move.slice(1), 10);
         if (isNaN(rowNum)) return null;
+        
         let col = colChar.charCodeAt(0) - 65; // 'A' = 0
         if (colChar >= 'I') col -= 1; // Bỏ qua 'I' trong Go
         const row = boardSize - rowNum;
         return [row, col];
     }
 
-    async callPachi(board, player, rank = 'intermediate', gameId = null) {
-        console.log('Calling Pachi for move generation, rank:', rank, 'gameId:', gameId);
+    async callPachi(board, player, rank = 'intermediate', gameId = null, historyCommands = []) {
+        console.log('Calling Pachi for move generation, rank:', rank, 'gameId:', gameId, 'player:', player);
         try {
             console.log('Using Pachi server:', this.serverUrl);
 
@@ -90,18 +92,23 @@ class GoAI {
             // Add board size command
             commands.push(`boardsize ${board.length}`);
 
-            // Add all moves
-            for (let i = 0; i < board.length; i++) {
-                for (let j = 0; j < board.length; j++) {
-                    if (board[i][j] === 'black') {
-                        commands.push(`play b ${String.fromCharCode(97 + j)}${board.length - i}`);
-                    } else if (board[i][j] === 'white') {
-                        commands.push(`play w ${String.fromCharCode(97 + j)}${board.length - i}`);
+            // Add history commands if provided
+            if (historyCommands && historyCommands.length > 0) {
+                commands.push(...historyCommands);
+            } else {
+                // Add all moves from current board state
+                for (let i = 0; i < board.length; i++) {
+                    for (let j = 0; j < board.length; j++) {
+                        if (board[i][j] === 'black') {
+                            commands.push(`play b ${String.fromCharCode(97 + j)}${board.length - i}`);
+                        } else if (board[i][j] === 'white') {
+                            commands.push(`play w ${String.fromCharCode(97 + j)}${board.length - i}`);
+                        }
                     }
                 }
             }
 
-            // Add genmove command
+            // push genmove command
             commands.push(`genmove ${player === 'black' ? 'b' : 'w'}`);
 
             // Send all commands in one request
@@ -301,7 +308,7 @@ class GoAI {
         }
     }
 
-    async makeMove(board, player, invalidMoves = new Set(), gameId = null) {
+    async makeMove(board, player, invalidMoves = new Set(), gameId = null, historyCommands = []) {
         const validMoves = [];
         for (let i = 0; i < board.length; i++) {
             for (let j = 0; j < board.length; j++) {
@@ -318,8 +325,8 @@ class GoAI {
         else if (this.difficulty === 'intermediate') rank = 'intermediate';
         else if (this.difficulty === 'advanced' || this.difficulty === 'pro') rank = 'pro';
 
-        // Sử dụng Pachi để sinh nước đi
-        const pachiMove = await this.callPachi(board, player, rank, gameId);
+        // Sử dụng Pachi để sinh nước đi với lịch sử nước đi
+        const pachiMove = await this.callPachi(board, player, rank, gameId, historyCommands);
         if (pachiMove) return pachiMove;
 
         // Fallback nếu Pachi không trả về nước đi

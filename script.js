@@ -297,17 +297,34 @@ class GoGame {
             }
         }
 
-        do {
-            move = await this.ai.makeMove(this.board, this.currentPlayer, invalidMoves, this.id);
-            if (move) {
-                const [row, col] = move;
-                const moveKey = `${row},${col}`;
-                if (invalidMoves.has(moveKey) || !this.isValidMove(row, col, this.board)) {
-                    invalidMoves.add(moveKey);
-                    move = null; // Reset move to try again
-                }
+        // Convert history to GTP format
+        const historyCommands = this.history.map(move => {
+            const color = move.player === 'black' ? 'b' : 'w';
+            const col = String.fromCharCode(97 + move.col); // Convert column to letter
+            const row = this.boardSize - move.row; // Convert row to GTP format
+            
+            // Skip 'i' column to follow GTP standard
+            let gtpCol = col;
+            if (col >= 'i') {
+                gtpCol = String.fromCharCode(col.charCodeAt(0) + 1);
             }
-        } while (move === null && invalidMoves.size < this.boardSize * this.boardSize);
+            
+            return `play ${color} ${gtpCol}${row}`;
+        });
+
+        move = await this.ai.makeMove(this.board, this.currentPlayer, invalidMoves, this.id, historyCommands);
+            
+        // do {
+        //     move = await this.ai.makeMove(this.board, this.currentPlayer, invalidMoves, this.id, historyCommands);
+        //     if (move) {
+        //         const [row, col] = move;
+        //         const moveKey = `${row},${col}`;
+        //         if (invalidMoves.has(moveKey) || !this.isValidMove(row, col, this.board)) {
+        //             invalidMoves.add(moveKey);
+        //             move = null; // Reset move to try again
+        //         }
+        //     }
+        // } while (move === null && invalidMoves.size < this.boardSize * this.boardSize);
 
         if (move) {
             console.log('makeAIMove - AI move: ' + move);
@@ -460,7 +477,7 @@ class GoGame {
         // Always use GoAI with EC2 server
         if(!this.ai) {
             this.ai = new GoAI(this.difficulty);
-            console.log('Using Pachi on EC2');
+            console.log('Using Pachi');
         }
 
         // Xác định aiColor và currentPlayer
