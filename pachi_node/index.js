@@ -17,7 +17,7 @@ if (!fs.existsSync(logDir)) {
 // Start Pachi process
 function startPachi() {
     try {
-        const pachi = spawn('../pachi/pachi', ['--gtp', '-t', '5']);
+        const pachi = spawn('../pachi/pachi', ['--gtp', '-t', '0']);
         
         // Set max listeners
         pachi.setMaxListeners(5);
@@ -126,6 +126,16 @@ function sendGtpCommand(cmd, retry = 3) {
                 buffer += data.toString();
                 const lines = buffer.split('\n');
                 buffer = lines.pop(); // Keep the last incomplete line in buffer
+
+                // when command is showboard, log the response
+                if (cmd === 'showboard') {
+                    // log the response each line
+                    for (const line of lines) {
+                        console.log(`[Pachi] Response for ${cmd}: ${line}`);
+                    }
+                    resolve({ command: cmd, response: lines.join('\n') });
+                    return;
+                }
 
                 for (const line of lines) {
                     const trimmedLine = line.trim();

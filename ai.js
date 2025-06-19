@@ -81,13 +81,13 @@ class GoAI {
         return [row, col];
     }
 
-    async callPachi(board, player, rank = 'intermediate', gameId = null, historyCommands = []) {
+    async callGenMove(board, player, rank = 'intermediate', gameId = null, historyCommands = []) {
         console.log('Calling Pachi for move generation, rank:', rank, 'gameId:', gameId, 'player:', player);
         try {
             console.log('Using Pachi server:', this.serverUrl);
 
             // Prepare all commands
-            const commands = ['clear_board'];
+            const commands = ['komi 6.5', 'clear_board'];
             
             // Add board size command
             commands.push(`boardsize ${board.length}`);
@@ -110,6 +110,7 @@ class GoAI {
 
             // push genmove command
             commands.push(`genmove ${player === 'black' ? 'b' : 'w'}`);
+            commands.push('showboard');
 
             // Send all commands in one request
             const response = await fetch(`${this.serverUrl}/batch`, {
@@ -149,8 +150,11 @@ class GoAI {
             }
 
             const coords = this.pachiMoveToCoords(moveStr, board.length);
-            if (!coords) return null;
-            return coords;
+            console.log('Move from Pachi:', moveStr, 'to coords:', coords);
+            const boardResult = data.responses['showboard'];
+            console.log('Board result from Pachi:', boardResult);
+            if (!coords || !boardResult) return null;
+            return [coords, boardResult];
         } catch (error) {
             console.log('Failed to get move from Pachi');
             console.error('Error calling Pachi:', error);
@@ -326,8 +330,8 @@ class GoAI {
         else if (this.difficulty === 'advanced' || this.difficulty === 'pro') rank = 'pro';
 
         // Sử dụng Pachi để sinh nước đi với lịch sử nước đi
-        const pachiMove = await this.callPachi(board, player, rank, gameId, historyCommands);
-        if (pachiMove) return pachiMove;
+        const result = await this.callGenMove(board, player, rank, gameId, historyCommands);
+        if (result) return result;
 
         // Fallback nếu Pachi không trả về nước đi
         switch(this.difficulty) {
@@ -339,6 +343,68 @@ class GoAI {
                 return this.makeAdvancedMove(board, player, validMoves);
             default:
                 return this.makeBeginnerMove(board, player, validMoves);
+        }
+    }
+
+    async sendPlayMove(board, gameId = null, historyCommands = []) {
+        console.log('Getting board state from Pachi');
+        try {
+            console.log('Using Pachi server:', this.serverUrl);
+
+            // Prepare commands
+            const commands = ['komi 6.5', 'clear_board'];
+            commands.push(`boardsize ${board.length}`);
+
+            if (historyCommands && historyCommands.length > 0) {
+                commands.push(...historyCommands);
+            } else {
+                // Add all moves from current board state
+                for (let i = 0; i < board.length; i++) {
+                    for (let j = 0; j < board.length; j++) {
+                        if (board[i][j] === 'black') {
+                            commands.push(`play b ${String.fromCharCode(97 + j)}${board.length - i}`);
+                        } else if (board[i][j] === 'white') {
+                            commands.push(`play w ${String.fromCharCode(97 + j)}${board.length - i}`);
+                        }
+                    }
+                }
+            }
+
+            // Add showboard command
+            commands.push('showboard');
+
+            // Send commands
+            const response = await fetch(`${this.serverUrl}/batch`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    commands: commands,
+                    gameId: gameId
+                })
+            });
+
+            if (!response.ok) {
+                console.log('Failed to get board state from Pachi');
+                throw new Error('Failed to get board state from Pachi');
+            }
+
+            const data = await response.json();
+            console.log('Showboard response from Pachi:', data);
+
+            // Get the showboard response
+            const showboardResponse = data.responses['showboard'];
+            if (!showboardResponse) {
+                console.warn('No showboard response found');
+                return null;
+            }
+
+            return showboardResponse;
+        } catch (error) {
+            console.log('Failed to get board state from Pachi');
+            console.error('Error calling Pachi showboard:', error);
+            return null;
         }
     }
 } 

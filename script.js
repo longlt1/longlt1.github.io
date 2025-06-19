@@ -101,16 +101,16 @@ class GoGame {
         // Thêm sự kiện click cho bàn cờ
         board.addEventListener('click', (e) => {
             if (this.isAIThinking || this.isGameOver) return;
-            
+
             const rect = board.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
-            
+
             const col = Math.round((x / rect.width) * (this.boardSize - 1));
             const row = Math.round((y / rect.height) * (this.boardSize - 1));
-            
+
             if (row >= 0 && row < this.boardSize && col >= 0 && col < this.boardSize) {
-                this.makeMove(row, col,'human');
+                this.makeMove(row, col, 'human');
             }
         });
     }
@@ -188,7 +188,7 @@ class GoGame {
     randomizeColors() {
         const aiColor = Math.random() < 0.5 ? 'black' : 'white';
         document.getElementById('aiColor').value = aiColor;
-        
+
         const playerColor = aiColor === 'black' ? 'white' : 'black';
         this.currentPlayer = 'black';
         this.updatePlayerNames();
@@ -210,7 +210,7 @@ class GoGame {
         }
     }
 
-    makeMove(row, col, player) {
+    async makeMove(row, col, player) {
         console.log('makeMove - Player turn: ' + this.currentPlayer + ' - Type: ' + this.currentPlayerType);
         if (player !== this.currentPlayerType) return; // Return if the player type does not match the current player type
         if (this.board[row][col] !== null) return;
@@ -218,30 +218,11 @@ class GoGame {
         // Kiểm tra luật ko
         const tempBoard = this.board.map(row => [...row]);
         tempBoard[row][col] = this.currentPlayer;
-        
+
         if (!this.isValidMove(row, col, tempBoard)) {
             alert('Nước đi không hợp lệ!');
             return;
         }
-
-        // Kiểm tra và bắt quân đối phương
-        const opponent = this.currentPlayer === 'black' ? 'white' : 'black';
-        const adjacentOpponentGroups = this.getAdjacentGroups(row, col, opponent, this.board);
-        let capturedCount = 0;
-        
-        for (const group of adjacentOpponentGroups) {
-            if (!this.hasLiberties(group, this.board)) {
-                // Bắt quân
-                for (const pos of group) {
-                    const [r, c] = pos.split(',').map(Number);
-                    this.board[r][c] = null;
-                    capturedCount++;
-                }
-            }
-        }
-
-        // Cập nhật số quân bắt được
-        this.capturedStones[this.currentPlayer] += capturedCount;
 
         this.board[row][col] = this.currentPlayer;
         this.history.push({
@@ -250,9 +231,46 @@ class GoGame {
             player: this.currentPlayer
         });
 
+        // send showboard command to pachi, get response then parse to this.board
+        // create a new function to send gtp command showboard and parse response to this.board
+        const response = await this.ai.sendPlayMove(this.board, this.id, this.convertHistoryToGtpCommands(this.history));
+        if (response) {
+            /*
+            = Move:   2  Komi: 0.0  Handicap: 0  Captures B: 0 W: 0  [0 0 0 0]  
+                A B C D E F G H J  
+                +-------------------+
+            9 | . X . . . . . . . |
+            8 | . O). . . . . . . |
+            7 | . . . . . . . . . |
+            6 | . . . . . . . . . |
+            5 | . . . . . . . . . |
+            4 | . . . . . . . . . |
+            3 | . . . . . . . . . |
+            2 | . . . . . . . . . |
+            1 | . . . . . . . . . |
+                +-------------------+
+                
+            */
+            // get first row to get data of ' Captures B: 0 W: 0 ' of '= Move:   2  Komi: 0.0  Handicap: 0  Captures B: 0 W: 0  [0 0 0 0]  ' and update to this.capturedStones
+            const captureB = response.split('\n')[0].split(' ')[3].replace('B:', '');
+            const captureW = response.split('\n')[0].split(' ')[5].replace('W:', '');
+            this.capturedStones.black += parseInt(captureB);
+            this.capturedStones.white += parseInt(captureW);
+
+            // remove 3 first and last line, remove number and '|', trim space, keep only the symbols
+            let board = this.convertGtpToBoard(response);
+            // convert 'X' or 'X)' to 'black' and 'O' or 'O)' to 'white'
+            this.board = board.map(row =>
+                row.map(cell => {
+                    if (cell === 'X' || cell === 'X)') return 'black';
+                    if (cell === 'O' || cell === 'O)') return 'white';
+                    return null;
+                })
+            );
+        }
+        // }
+
         this.updateBoard();
-        this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black';
-        this.currentPlayerType = this.currentPlayer === document.getElementById('aiColor').value ? 'AI' : 'human';
         this.updateCurrentPlayer();
         this.updateScore();
 
@@ -281,6 +299,52 @@ class GoGame {
                 }
             }
         }
+
+        if (this.gameMode === 'pvp') {
+            // check if there are no valid moves left for the current player
+            let hasValidMove = false;
+            for (let i = 0; i < this.boardSize; i++) {
+                for (let j = 0; j < this.boardSize; j++) {
+                    if (this.board[i][j] === null && this.isValidMove(i, j, this.board)) {
+                        hasValidMove = true;
+                        break;
+                    }
+                }
+                if (!hasValidMove) {
+                    console.log('No valid moves left for current player');
+                    this.endGame();
+                }
+            }
+        }
+        this.changeCurrentPlayer();
+    }
+
+    convertGtpToBoard(gtpBoard) {
+        return gtpBoard
+        .split('\n')
+        // remove 3 first lines and 2 last lines
+        .slice(3, -2) //
+        .map(line => {
+            // Loại bỏ số dòng và dấu '|', keep space
+            const clean = line.replace(/^\s*\d+\s*\|\s*/, '').replace(/\s*\|?\s*\d*\s*$/, '').trim().replace(/\s+/g, '');
+            // Tách từng ký tự
+            const chars = [...clean];
+            // Gom các ký hiệu 'X)' hoặc 'O)' thành 1 phần tử
+            const row = [];
+            for (let i = 0; i < chars.length; i++) {
+                if (chars[i] === 'X' && chars[i + 1] === ')') {
+                    row.push('black)');
+                    i++; // Bỏ qua ký tự ')'
+                } else if (chars[i] === 'O' && chars[i + 1] === ')') {
+                    row.push('white)');
+                    i++;
+                } else if (chars[i] !== ' ') {
+                    row.push(null);
+                }
+            }
+            return row;
+         });
+        
     }
 
     async makeAIMove() {
@@ -298,44 +362,47 @@ class GoGame {
         }
 
         // Convert history to GTP format
-        const historyCommands = this.history.map(move => {
-            const color = move.player === 'black' ? 'b' : 'w';
-            const col = String.fromCharCode(97 + move.col); // Convert column to letter
-            const row = this.boardSize - move.row; // Convert row to GTP format
-            
-            // Skip 'i' column to follow GTP standard
-            let gtpCol = col;
-            if (col >= 'i') {
-                gtpCol = String.fromCharCode(col.charCodeAt(0) + 1);
-            }
-            
-            return `play ${color} ${gtpCol}${row}`;
-        });
+        const historyCommands = this.convertHistoryToGtpCommands(this.history);
 
-        move = await this.ai.makeMove(this.board, this.currentPlayer, invalidMoves, this.id, historyCommands);
-            
-        // do {
-        //     move = await this.ai.makeMove(this.board, this.currentPlayer, invalidMoves, this.id, historyCommands);
-        //     if (move) {
-        //         const [row, col] = move;
-        //         const moveKey = `${row},${col}`;
-        //         if (invalidMoves.has(moveKey) || !this.isValidMove(row, col, this.board)) {
-        //             invalidMoves.add(moveKey);
-        //             move = null; // Reset move to try again
-        //         }
-        //     }
-        // } while (move === null && invalidMoves.size < this.boardSize * this.boardSize);
+        var result = await this.ai.makeMove(this.board, this.currentPlayer, invalidMoves, this.id, historyCommands);
 
-        if (move) {
-            console.log('makeAIMove - AI move: ' + move);
-            const [row, col] = move;
-            this.makeMove(row, col, 'AI');
+        if (result) {
+            console.log('makeAIMove - AI move: ' + result[0]);
+            const [row, col] = result[0];
+            this.history.push({
+                row,
+                col,
+                player: this.currentPlayer
+            });
+            // this.makeMove(row, col, 'AI');
+            const boardResult = result[1];
+            this.board = this.convertGtpToBoard(boardResult);
+            this.updateCurrentPlayer();
+            this.updateBoard();
+            this.updateScore();
         } else {
             console.log('makeAIMove - No valid move found after checking all positions');
             this.endGame(); // End the game if no valid move is found
         }
         this.isAIThinking = false;
+        this.changeCurrentPlayer();
         document.getElementById('board').style.cursor = 'default';
+    }
+
+    convertHistoryToGtpCommands(history) {
+        return history.map(move => {
+            const color = move.player === 'black' ? 'b' : 'w';
+            const col = String.fromCharCode(97 + move.col); // Convert column to letter
+            const row = this.boardSize - move.row; // Convert row to GTP format
+
+            // Skip 'i' column to follow GTP standard
+            let gtpCol = col;
+            if (col >= 'i') {
+                gtpCol = String.fromCharCode(col.charCodeAt(0) + 1);
+            }
+
+            return `play ${color} ${gtpCol}${row}`;
+        });
     }
 
     isValidMove(row, col, board) {
@@ -346,7 +413,7 @@ class GoGame {
         // Kiểm tra xem nước đi có bắt được quân đối phương không
         const opponent = this.currentPlayer === 'black' ? 'white' : 'black';
         const adjacentOpponentGroups = this.getAdjacentGroups(row, col, opponent, board);
-        
+
         for (const group of adjacentOpponentGroups) {
             if (!this.hasLiberties(group, board)) return true;
         }
@@ -362,13 +429,13 @@ class GoGame {
         while (queue.length > 0) {
             const [r, c] = queue.shift();
             const key = `${r},${c}`;
-            
+
             if (group.has(key)) continue;
             if (r < 0 || r >= this.boardSize || c < 0 || c >= this.boardSize) continue;
             if (board[r][c] !== color) continue;
 
             group.add(key);
-            queue.push([r+1, c], [r-1, c], [r, c+1], [r, c-1]);
+            queue.push([r + 1, c], [r - 1, c], [r, c + 1], [r, c - 1]);
         }
 
         return group;
@@ -383,12 +450,12 @@ class GoGame {
     }
 
     hasAdjacentLiberty(row, col, board) {
-        const directions = [[1,0], [-1,0], [0,1], [0,-1]];
+        const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
         for (const [dr, dc] of directions) {
             const newRow = row + dr;
             const newCol = col + dc;
-            if (newRow >= 0 && newRow < this.boardSize && 
-                newCol >= 0 && newCol < this.boardSize && 
+            if (newRow >= 0 && newRow < this.boardSize &&
+                newCol >= 0 && newCol < this.boardSize &&
                 board[newRow][newCol] === null) {
                 return true;
             }
@@ -398,29 +465,35 @@ class GoGame {
 
     getAdjacentGroups(row, col, color, board) {
         const groups = new Set();
-        const directions = [[1,0], [-1,0], [0,1], [0,-1]];
-        
+        const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
         for (const [dr, dc] of directions) {
             const newRow = row + dr;
             const newCol = col + dc;
-            if (newRow >= 0 && newRow < this.boardSize && 
-                newCol >= 0 && newCol < this.boardSize && 
+            if (newRow >= 0 && newRow < this.boardSize &&
+                newCol >= 0 && newCol < this.boardSize &&
                 board[newRow][newCol] === color) {
                 const group = this.getGroup(newRow, newCol, board);
                 groups.add(group);
             }
         }
-        
+
         return groups;
     }
 
     updateBoard() {
         const board = document.getElementById('board');
-        
+
         // Xóa tất cả quân cờ cũ
         const stones = board.getElementsByClassName('stone');
         while (stones.length > 0) {
             stones[0].remove();
+        }
+
+        // Xác định quân cờ cuối cùng
+        let lastMove = null;
+        if (this.history.length > 0) {
+            lastMove = this.history[this.history.length - 1];
         }
 
         // Vẽ lại quân cờ
@@ -434,20 +507,35 @@ class GoGame {
                     stone.style.height = `${this.boardWidth / 10}px`;
                     stone.style.borderRadius = '50%';
                     stone.style.backgroundColor = this.board[i][j] === 'black' ? '#000' : '#fff';
-                    stone.style.border = '1px solid #000';
+                    // Nếu là quân cuối cùng, tăng border
+                    if (lastMove && lastMove.row === i && lastMove.col === j) {
+                        stone.style.border = '3px solid #FFD700'; // Viền vàng, dày 3px
+                        stone.style.zIndex = '2';
+                    } else {
+                        stone.style.border = '1px solid #000';
+                        stone.style.zIndex = '1';
+                    }
                     stone.style.transform = 'translate(-50%, -50%)';
                     stone.style.left = `${(j * 100) / (this.boardSize - 1)}%`;
                     stone.style.top = `${(i * 100) / (this.boardSize - 1)}%`;
-                    stone.style.zIndex = '1';
                     board.appendChild(stone);
                 }
             }
         }
     }
 
+    changeCurrentPlayer() {
+        this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black';
+        this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black';
+        // if current game is pve, then current player type is ai
+        if (this.gameMode === 'pve') {
+            this.currentPlayerType = this.currentPlayer === document.getElementById('aiColor').value ? 'AI' : 'human';
+        }
+    }
+
     updateCurrentPlayer() {
         console.log('updateCurrentPlayer - Player turn: ' + this.currentPlayer + ' - Type: ' + this.currentPlayerType);
-        document.getElementById('currentPlayer').textContent = 
+        document.getElementById('currentPlayer').textContent =
             this.currentPlayer === 'black' ? 'Đen' : 'Trắng';
         // Nếu đang playing thì cập nhật lại thông tin lượt
         if (this.state === 'playing') {
@@ -475,7 +563,7 @@ class GoGame {
         this.setState('playing');
 
         // Always use GoAI with EC2 server
-        if(!this.ai) {
+        if (!this.ai) {
             this.ai = new GoAI(this.difficulty);
             console.log('Using Pachi');
         }
@@ -503,7 +591,7 @@ class GoGame {
 
     undo() {
         if (this.history.length === 0) return;
-        
+
         const lastMove = this.history.pop();
         this.board[lastMove.row][lastMove.col] = null;
         this.currentPlayer = lastMove.player;
@@ -535,7 +623,7 @@ class GoGame {
                     }
                 }
             }
-            
+
             if (emptySpaces.length > 0) {
                 const [row, col] = emptySpaces[Math.floor(Math.random() * emptySpaces.length)];
                 const intersection = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
@@ -553,7 +641,7 @@ class GoGame {
             item.addEventListener('click', () => {
                 menuItems.forEach(mi => mi.classList.remove('active'));
                 document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
-                
+
                 item.classList.add('active');
                 const sectionId = item.dataset.section;
                 document.getElementById(sectionId).classList.add('active');
@@ -565,16 +653,16 @@ class GoGame {
             button.addEventListener('click', (e) => {
                 const lessonCard = e.target.closest('.lesson-card');
                 const lesson = lessonCard.dataset.lesson;
-                
+
                 // Chuyển sang chế độ học
                 document.getElementById('gameMode').value = 'learning';
                 document.querySelector('.ai-settings').style.display = 'block';
                 document.querySelector('.ai-hint').style.display = 'block';
-                
+
                 // Kích hoạt chế độ học
                 this.ai.startLearningMode(lesson);
                 this.newGame();
-                
+
                 // Chuyển sang tab chơi cờ
                 document.querySelector('[data-section="game"]').click();
             });
@@ -624,7 +712,7 @@ class GoGame {
         while (queue.length > 0) {
             const [r, c] = queue.shift();
             const key = `${r},${c}`;
-            
+
             if (visited.has(key)) continue;
             visited.add(key);
 
@@ -633,12 +721,12 @@ class GoGame {
                 territory.add(key);
 
                 // Kiểm tra các ô xung quanh
-                const directions = [[1,0], [-1,0], [0,1], [0,-1]];
+                const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
                 for (const [dr, dc] of directions) {
                     const newRow = r + dr;
                     const newCol = c + dc;
-                    
-                    if (newRow >= 0 && newRow < this.boardSize && 
+
+                    if (newRow >= 0 && newRow < this.boardSize &&
                         newCol >= 0 && newCol < this.boardSize) {
                         if (this.board[newRow][newCol] === null) {
                             queue.push([newRow, newCol]);
@@ -762,4 +850,4 @@ class GoGame {
 // Khởi tạo trò chơi khi trang được tải
 window.addEventListener('load', () => {
     new GoGame();
-}); 
+});
