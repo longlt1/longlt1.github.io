@@ -526,7 +526,6 @@ class GoGame {
 
     changeCurrentPlayer() {
         this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black';
-        this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black';
         // if current game is pve, then current player type is ai
         if (this.gameMode === 'pve') {
             this.currentPlayerType = this.currentPlayer === document.getElementById('aiColor').value ? 'AI' : 'human';
@@ -586,7 +585,6 @@ class GoGame {
             this.currentPlayer = 'black';
             this.currentPlayerType = 'human';
         }
-        this.updateCurrentPlayer();
     }
 
     undo() {
