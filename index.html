@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Demo Flappy Bird - Phaser 3</title>
-    <!-- Nhúng thư viện Phaser 3 qua CDN -->
+    <title>Menu Screen - Phaser 3</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <style>
         body {
@@ -13,170 +12,218 @@
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background-color: #2c3e50;
+            background-color: #000;
         }
         canvas {
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
         }
     </style>
 </head>
 <body>
 
 <script>
-    class MainScene extends Phaser.Scene {
+    class MenuScene extends Phaser.Scene {
         constructor() {
-            super({ key: 'MainScene' });
+            super({ key: 'MenuScene' });
         }
 
-        // 1. CHUẨN BỊ TÀI NGUYÊN (PRELOAD)
         preload() {
-            // Thay vì dùng ảnh ngoài, chúng ta sẽ tự vẽ texture cho chim và ống nước
-            let graphics = this.make.graphics({x: 0, y: 0, add: false});
-            
-            // Vẽ con chim (hình vuông màu vàng)
-            graphics.fillStyle(0xf1c40f, 1);
-            graphics.fillRect(0, 0, 30, 30);
-            graphics.generateTexture('bird', 30, 30);
-            
-            graphics.clear();
-
-            // Vẽ ống nước (hình chữ nhật màu xanh lá)
-            graphics.fillStyle(0x2ecc71, 1);
-            graphics.fillRect(0, 0, 50, 600);
-            graphics.generateTexture('pipe', 50, 600);
+            // MẸO: Nếu bạn có file ảnh nền nhân vật (ví dụ: background.jpg),
+            // hãy bỏ comment dòng dưới đây và load ảnh của bạn vào.
+            // this.load.image('bg', 'assets/background.jpg');
         }
 
-        // 2. KHỞI TẠO GAME (CREATE)
         create() {
-            // Nền trời
-            this.cameras.main.setBackgroundColor('#71c5cf');
+            // 1. BACKGROUND (Nền)
+            // Nếu có ảnh nền, dùng: this.add.image(375, 375, 'bg').setDisplaySize(750, 750);
+            // Ở đây mình dùng nền màu xanh rêu tối (Dark Green)
+            this.cameras.main.setBackgroundColor('#101815');
 
-            // Thêm con chim vào màn hình
-            this.bird = this.physics.add.sprite(100, 245, 'bird');
-            // Thêm trọng lực để chim rơi xuống
-            this.bird.body.gravity.y = 1000;
+            // 2. KHUNG VIỀN TRANG TRÍ (Borders)
+            const graphics = this.add.graphics();
+            graphics.lineStyle(1, 0x4a5948, 1);
+            
+            // Viền ngoài cùng
+            graphics.strokeRect(20, 20, 710, 710);
+            // Đường kẻ ngang dưới Header
+            graphics.beginPath();
+            graphics.moveTo(20, 100);
+            graphics.lineTo(730, 100);
+            graphics.strokePath();
 
-            // Nhóm chứa các ống nước
-            this.pipes = this.physics.add.group();
+            // 3. HEADER (Phần trên cùng)
+            this.createHeader(graphics);
 
-            // Hàm tạo ống nước mỗi 1.5 giây
-            this.time.addEvent({
-                delay: 1500,
-                callback: this.addRowOfPipes,
-                callbackScope: this,
-                loop: true
+            // 4. PHẦN TEXT BÊN TRÁI (Left Content)
+            this.createLeftContent();
+
+            // 5. DANH SÁCH NÚT MENU BÊN PHẢI (Right Menu)
+            const menuStartX = 410;
+            const menuStartY = 140;
+            const menuSpacing = 110;
+
+            this.createMenuButton(menuStartX, menuStartY, '01', 'New Campaign', 'Start a new campaign');
+            this.createMenuButton(menuStartX, menuStartY + menuSpacing * 1, '02', 'Continue', 'Load your most recent save');
+            this.createMenuButton(menuStartX, menuStartY + menuSpacing * 2, '03', 'Guide', 'How to play and win');
+            this.createMenuButton(menuStartX, menuStartY + menuSpacing * 3, '04', 'Credit', 'About the creator');
+            this.createMenuButton(menuStartX, menuStartY + menuSpacing * 4, '05', 'Leaderboard', 'Players\' achievements');
+        }
+
+        createHeader(graphics) {
+            // Logo Icon (Khối vuông màu vàng)
+            graphics.fillStyle(0xd5bd89, 1);
+            graphics.fillRect(40, 40, 40, 40);
+            // Kẻ chữ thập đen trong logo
+            graphics.lineStyle(2, 0x101815, 1);
+            graphics.beginPath();
+            graphics.moveTo(45, 60); graphics.lineTo(75, 60);
+            graphics.moveTo(60, 45); graphics.lineTo(60, 75);
+            graphics.strokePath();
+
+            // Tên game
+            this.add.text(95, 42, 'Loạn 12 Sứ Quân', { 
+                fontFamily: 'Georgia, serif', fontSize: '24px', fontStyle: 'bold', color: '#d5bd89' 
+            });
+            this.add.text(95, 70, 'Legacy of the Twelve Warlords', { 
+                fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#88988e' 
             });
 
-            // Lắng nghe sự kiện phím Space hoặc click chuột để nhảy
-            this.input.keyboard.on('keydown-SPACE', this.jump, this);
-            this.input.on('pointerdown', this.jump, this);
+            // Nút Settings
+            graphics.lineStyle(1, 0x4a5948, 1);
+            graphics.strokeRoundedRect(480, 45, 90, 30, 15);
+            this.add.text(525, 60, '⚙ Settings', { 
+                fontFamily: 'Arial', fontSize: '12px', fontStyle: 'bold', color: '#a3b1a6' 
+            }).setOrigin(0.5);
 
-            // Điểm số
-            this.score = 0;
-            this.labelScore = this.add.text(20, 20, '0', { font: '30px Arial', fill: '#ffffff' });
-            this.labelScore.setDepth(1); // Đảm bảo điểm số luôn hiển thị trên cùng
-
-            // Xử lý va chạm giữa chim và ống nước
-            this.physics.add.overlap(this.bird, this.pipes, this.hitPipe, null, this);
-        }
-
-        // 3. VÒNG LẶP GAME (UPDATE)
-        update() {
-            // Nếu chim rớt ra khỏi màn hình (trên hoặc dưới) -> Game Over
-            if (this.bird.y < 0 || this.bird.y > 600) {
-                this.restartGame();
-            }
-
-            // Xoay chim một chút khi rơi để tạo hiệu ứng
-            if (this.bird.angle < 20) {
-                this.bird.angle += 1;
-            }
-
-            // Tính điểm: Nếu chim vượt qua ống nước
-            for (let pipe of this.pipes.getChildren()) {
-                if (pipe.getBounds().right < this.bird.getBounds().left && !pipe.scored) {
-                    pipe.scored = true;
-                    this.score += 0.5; // Mỗi cột có 2 ống (trên và dưới), nên cộng 0.5 mỗi ống
-                    this.labelScore.setText(Math.floor(this.score));
-                }
-                // Xóa ống nước khi đã bay ra khỏi mép trái màn hình để giải phóng bộ nhớ
-                if (pipe.x < -50) {
-                    pipe.destroy();
-                }
-            }
-        }
-
-        // HÀM: Chim nhảy lên
-        jump() {
-            // Nếu chim đang chết thì không cho nhảy
-            if (!this.bird.active) return;
+            // User Profile
+            graphics.strokeRoundedRect(585, 35, 135, 50, 4);
+            // Avatar (Hình tròn tượng trưng)
+            graphics.fillStyle(0x759c82, 1);
+            graphics.fillCircle(610, 60, 15);
             
-            // Vận tốc hướng lên (âm vì trục Y hướng xuống)
-            this.bird.body.velocity.y = -350;
-            
-            // Hiệu ứng ngóc đầu lên khi nhảy
-            this.scene.scene.tweens.add({
-                targets: this.bird,
-                angle: -20,
-                duration: 100
+            this.add.text(635, 45, 'Lê Thành Long', { 
+                fontFamily: 'Arial', fontSize: '13px', fontStyle: 'bold', color: '#d5bd89' 
+            });
+            this.add.text(635, 63, 'Bấm để đăng xuất', { 
+                fontFamily: 'Arial', fontSize: '10px', color: '#88988e' 
             });
         }
 
-        // HÀM: Thêm một phần của ống nước
-        addOnePipe(x, y) {
-            let pipe = this.physics.add.sprite(x, y, 'pipe');
-            this.pipes.add(pipe);
+        createLeftContent() {
+            // Subtitle nhỏ
+            this.add.text(40, 380, 'A REALM WITHOUT A RULER · HEROES RISE', {
+                fontFamily: 'Arial, sans-serif', fontSize: '11px', fontStyle: 'bold', color: '#d5bd89', letterSpacing: '2px'
+            });
+
+            // Tiêu đề chính lớn
+            this.add.text(40, 410, 'Who will unite\nthe realm as one?', {
+                fontFamily: 'Georgia, serif', fontSize: '42px', fontStyle: 'bold', color: '#ffffff', lineSpacing: 10
+            });
+
+            // Đoạn văn miêu tả
+            this.add.text(40, 540, 'The year 966. Twelve warlords hold their\nground, gates shut, the fighting unending.', {
+                fontFamily: 'Georgia, serif', fontSize: '16px', color: '#cccccc', lineSpacing: 8
+            });
+        }
+
+        createMenuButton(x, y, num, title, desc) {
+            const width = 300;
+            const height = 90;
+
+            // Container chứa cả nút
+            const container = this.add.container(x, y);
+
+            // Hình nền của nút
+            const bg = this.add.graphics();
             
-            // Ống nước di chuyển sang trái
-            pipe.body.velocity.x = -200;
-            // Ống nước không bị rơi bởi trọng lực
-            pipe.body.allowGravity = false;
-            // Thuộc tính tùy chỉnh để tính điểm
-            pipe.scored = false; 
-        }
+            // Hàm vẽ trạng thái bình thường
+            const drawNormal = () => {
+                bg.clear();
+                bg.fillStyle(0x1a241d, 0.85); // Nền xanh rêu đậm
+                bg.fillRoundedRect(0, 0, width, height, 4);
+                bg.lineStyle(2, 0x4a5948, 1); // Viền mờ
+                bg.strokeRoundedRect(0, 0, width, height, 4);
+            };
 
-        // HÀM: Thêm 1 cột gồm 2 ống (trên và dưới) chừa khoảng trống ở giữa
-        addRowOfPipes() {
-            // Chọn ngẫu nhiên vị trí của khoảng trống (từ ô thứ 1 đến ô thứ 5)
-            // Lưới chia màn hình làm 8 ô (mỗi ô 600/8 = 75px chiều cao)
-            let hole = Math.floor(Math.random() * 5) + 1;
+            // Hàm vẽ trạng thái khi hover (Di chuột)
+            const drawHover = () => {
+                bg.clear();
+                bg.fillStyle(0x233128, 1); // Sáng hơn một chút
+                bg.fillRoundedRect(0, 0, width, height, 4);
+                bg.lineStyle(2, 0xd5bd89, 1); // Viền vàng sáng lên
+                bg.strokeRoundedRect(0, 0, width, height, 4);
+            };
 
-            for (let i = 0; i < 8; i++) {
-                // Nếu không thuộc khoảng trống thì tạo ống
-                if (i !== hole && i !== hole + 1 && i !== hole + 2) {
-                    // Căn chỉnh tâm của ống nước
-                    this.addOnePipe(400, i * 75 + 37.5);
-                }
-            }
-        }
+            drawNormal(); // Vẽ mặc định ban đầu
+            container.add(bg);
 
-        // HÀM: Khi chim đụng ống nước
-        hitPipe() {
-            // Ngừng sinh ống nước mới
-            if (!this.bird.active) return;
-            this.bird.active = false;
-            this.restartGame();
-        }
+            // Số thứ tự (01, 02...)
+            const numText = this.add.text(25, height / 2, num, {
+                fontFamily: 'Georgia, serif', fontSize: '20px', fontStyle: 'bold', color: '#d5bd89'
+            }).setOrigin(0, 0.5);
+            container.add(numText);
 
-        // HÀM: Chơi lại game
-        restartGame() {
-            // Khởi động lại Scene này
-            this.scene.restart();
+            // Tiêu đề nút
+            const titleText = this.add.text(75, 32, title, {
+                fontFamily: 'Georgia, serif', fontSize: '24px', fontStyle: 'bold', color: '#ffffff'
+            }).setOrigin(0, 0.5);
+            container.add(titleText);
+
+            // Chú thích nhỏ bên dưới
+            const descText = this.add.text(75, 60, desc, {
+                fontFamily: 'Arial, sans-serif', fontSize: '13px', color: '#88988e'
+            }).setOrigin(0, 0.5);
+            container.add(descText);
+
+            // Vẽ Icon kim cương nhỏ ở góc phải
+            const diamond = this.add.graphics();
+            diamond.fillStyle(0x6a7266, 1);
+            diamond.translateCanvas(width - 30, height / 2);
+            diamond.fillPoints([{x: 0, y: -6}, {x: 6, y: 0}, {x: 0, y: 6}, {x: -6, y: 0}]);
+            container.add(diamond);
+
+            // Bật tính năng tương tác (Click, Hover)
+            const hitArea = new Phaser.Geom.Rectangle(0, 0, width, height);
+            container.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains);
+
+            // Đổi màu khi đưa chuột vào
+            container.on('pointerover', () => {
+                drawHover();
+                diamond.clear();
+                diamond.fillStyle(0xd5bd89, 1); // Kim cương sáng lên
+                diamond.translateCanvas(width - 30, height / 2);
+                diamond.fillPoints([{x: 0, y: -6}, {x: 6, y: 0}, {x: 0, y: 6}, {x: -6, y: 0}]);
+                document.body.style.cursor = 'pointer';
+            });
+
+            // Trở lại bình thường khi đưa chuột ra
+            container.on('pointerout', () => {
+                drawNormal();
+                diamond.clear();
+                diamond.fillStyle(0x6a7266, 1);
+                diamond.translateCanvas(width - 30, height / 2);
+                diamond.fillPoints([{x: 0, y: -6}, {x: 6, y: 0}, {x: 0, y: 6}, {x: -6, y: 0}]);
+                document.body.style.cursor = 'default';
+            });
+
+            // Xử lý sự kiện click
+            container.on('pointerdown', () => {
+                console.log(`Bạn đã click vào nút: ${title}`);
+                // Thêm logic chuyển Scene (chuyển màn hình) ở đây
+            });
         }
     }
 
-    // CẤU HÌNH PHASER GAME
     const config = {
         type: Phaser.AUTO,
-        width: 400, // Chiều rộng màn hình game
-        height: 600, // Chiều cao màn hình game
-        physics: {
-            default: 'arcade',
-            arcade: {
-                debug: false // Đổi thành true nếu muốn xem khung va chạm (hitbox)
-            }
-        },
-        scene: MainScene
+        width: 750,
+        height: 750,
+        scene: MenuScene,
+        scale: {
+            // Tự động scale cho vừa màn hình nếu màn hình nhỏ hơn 750
+            mode: Phaser.Scale.FIT,
+            autoCenter: Phaser.Scale.CENTER_BOTH
+        }
     };
 
     const game = new Phaser.Game(config);
